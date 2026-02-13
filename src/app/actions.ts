@@ -9,7 +9,6 @@ import { redirect } from 'next/navigation'
  * 1. AUTENTICAÇÃO E USUÁRIOS
  * ========================================== */
 
-// CORREÇÃO IMPORTANTE: Adicionado 'prevState' para compatibilidade com useActionState do React 19
 export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const senha = formData.get('senha') as string
@@ -121,19 +120,42 @@ export async function createCliente(formData: FormData) {
  * 3. OPERACIONAL (FESTAS & PACOTES)
  * ========================================== */
 
+// CORREÇÃO CRÍTICA AQUI: Adicionada validação de Data e IDs para evitar erro 500
 export async function createFesta(formData: FormData) {
-  await prisma.festa.create({
-    data: {
-      nomeAniversariante: formData.get('nomeAniversariante') as string,
-      dataFesta: new Date(formData.get('dataFesta') as string),
-      valorTotal: parseFloat(formData.get('valorTotal') as string) || 0,
-      qtdPessoas: parseInt(formData.get('qtdPessoas') as string) || 0,
-      status: 'AGENDADO',
-      cliente: { connect: { id: formData.get('clienteId') as string } },
-      pacote: { connect: { id: formData.get('pacoteId') as string } }
-    }
-  })
-  revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
+  const dataRaw = formData.get('dataFesta') as string
+  const clienteId = formData.get('clienteId') as string
+  const pacoteId = formData.get('pacoteId') as string
+
+  // 1. Validação de Data
+  const dataFesta = dataRaw ? new Date(dataRaw) : null
+  if (!dataFesta || isNaN(dataFesta.getTime())) {
+    console.error("Erro: Data inválida fornecida para createFesta")
+    return { error: "Data inválida" }
+  }
+
+  // 2. Validação de IDs (Evita o erro de 'jorg' ou 'simples')
+  if (!clienteId || !pacoteId) {
+    console.error("Erro: Cliente ou Pacote não fornecidos")
+    return { error: "Cliente e Pacote são obrigatórios" }
+  }
+
+  try {
+    await prisma.festa.create({
+      data: {
+        nomeAniversariante: formData.get('nomeAniversariante') as string,
+        dataFesta: dataFesta,
+        valorTotal: parseFloat(formData.get('valorTotal') as string) || 0,
+        qtdPessoas: parseInt(formData.get('qtdPessoas') as string) || 0,
+        status: 'AGENDADO',
+        cliente: { connect: { id: clienteId } },
+        pacote: { connect: { id: pacoteId } }
+      }
+    })
+    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
+  } catch (error) {
+    console.error("Erro ao criar festa no banco:", error)
+    return { error: "Erro ao salvar no banco de dados. Verifique os campos." }
+  }
 }
 
 export async function deleteFesta(formData: FormData) {
@@ -228,7 +250,6 @@ export async function registrarSaida(formData: FormData) {
   revalidatePath('/estoque')
 }
 
-// Mantido para compatibilidade com versões antigas das páginas
 export async function movimentarEstoque(formData: FormData) {
   const id = formData.get('id') as string
   const tipo = formData.get('tipo') as string
