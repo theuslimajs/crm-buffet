@@ -1,40 +1,40 @@
-// Configuração do Cliente Prisma
+// Configuração do motor do Prisma para gerar o cliente de banco de dados
 generator client {
   provider = "prisma-client-js"
 }
 
-// Configuração do Banco de Dados (Neon / PostgreSQL)
+// Configuração da conexão com o Neon (PostgreSQL)
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// --- 1. USUÁRIOS E PERMISSÕES ---
+// --- 1. GESTÃO DE USUÁRIOS E PERMISSÕES ---
 model Usuario {
-  id        String   @id @default(uuid())
-  nome      String
-  email     String   @unique
-  senha     String
-  cargo     String   // DONO, GERENTE, VENDEDOR, etc.
-  createdAt DateTime @default(now())
+  id                String   @id @default(uuid())
+  nome              String
+  email             String   @unique
+  senha             String
+  cargo             String   // Ex: DONO, GERENTE, VENDEDOR
+  createdAt         DateTime @default(now())
 
-  // Permissões de Acesso (Switches do Painel)
-  podeVerLeads      Boolean @default(false)
-  podeVerCalendario Boolean @default(false)
-  podeVerFestas     Boolean @default(false)
-  podeVerTarefas    Boolean @default(false)
-  podeVerEstoque    Boolean @default(false)
-  podeVerFinanceiro Boolean @default(false)
-  podeVerRelatorios Boolean @default(false)
+  // Flags de permissão para controle de acesso no Layout
+  podeVerLeads      Boolean  @default(false)
+  podeVerCalendario Boolean  @default(false)
+  podeVerFestas     Boolean  @default(false)
+  podeVerTarefas    Boolean  @default(false)
+  podeVerEstoque    Boolean  @default(false)
+  podeVerFinanceiro Boolean  @default(false)
+  podeVerRelatorios Boolean  @default(false)
 }
 
-// --- 2. COMERCIAL (CRM) ---
+// --- 2. COMERCIAL E CRM ---
 model Lead {
   id         String    @id @default(uuid())
   nome       String
   telefone   String
   status     String    // NOVO, EM_NEGOCIACAO, FECHADO, PERDIDO
-  origem     String?   // Instagram, Google, Indicação...
+  origem     String?   // Ex: Instagram, Google, Indicação
   dataVisita DateTime?
   createdAt  DateTime  @default(now())
 }
@@ -45,10 +45,10 @@ model Cliente {
   telefone  String
   email     String?
   createdAt DateTime @default(now())
-  festas    Festa[]  // Relacionamento: Um cliente pode ter várias festas
+  festas    Festa[]  // Relacionamento um-para-muitos
 }
 
-// --- 3. OPERACIONAL (FESTAS) ---
+// --- 3. OPERACIONAL (AGENDA E EVENTOS) ---
 model Festa {
   id                 String   @id @default(uuid())
   nomeAniversariante String
@@ -66,14 +66,13 @@ model Festa {
   pacoteId  String?
   pacote    Pacote? @relation(fields: [pacoteId], references: [id])
 
-  pagamentos Pagamento[] // Receitas vinculadas a esta festa
-  
+  pagamentos Pagamento[] 
   createdAt DateTime @default(now())
 }
 
 model Pacote {
   id          String  @id @default(uuid())
-  nome        String  // Ex: "Pacote Ouro", "Escolar"
+  nome        String  // Ex: "Pacote Ouro", "Festa Escolar"
   precoBase   Float
   descricao   String?
   festas      Festa[]
@@ -83,33 +82,31 @@ model Pacote {
 model Tarefa {
   id          String   @id @default(uuid())
   descricao   String
-  equipe      String   // Cozinha, Limpeza, Garçons...
+  equipe      String   // Cozinha, Garçons, Limpeza
   dataLimite  DateTime
   status      String   // PENDENTE, CONCLUIDA
   createdAt   DateTime @default(now())
 }
 
-// --- 5. ESTOQUE ---
+// --- 5. LOGÍSTICA (ESTOQUE) ---
 model ItemEstoque {
   id            String   @id @default(uuid())
   nome          String
-  categoria     String   // Bebidas, Descartáveis...
+  categoria     String   // Bebidas, Descartáveis, Alimentação
   quantidade    Int
   estoqueMinimo Int
   unidade       String   @default("UN") // UN, KG, L
   updatedAt     DateTime @updatedAt
 }
 
-// --- 6. FINANCEIRO ---
-
-// Receitas (Entradas das Festas)
+// --- 6. FINANCEIRO (CAIXA) ---
 model Pagamento {
   id             String   @id @default(uuid())
   valor          Float
   dataVencimento DateTime
-  status         String   // PENDENTE, PAGO, ATRASADO
-  parcela        Int      // 0 = Entrada/Única, 1 = 1ª Parcela...
-  metodo         String   // PIX, CARTAO, DINHEIRO
+  status         String   // PENDENTE, PAGO
+  parcela        Int      // 0 para entrada, 1 para parcela 1, etc.
+  metodo         String   // PIX, CARTÃO, DINHEIRO
   
   festaId        String?
   festa          Festa?   @relation(fields: [festaId], references: [id])
@@ -117,18 +114,17 @@ model Pagamento {
   createdAt      DateTime @default(now())
 }
 
-// Despesas (Contas a Pagar)
 model Despesa {
   id             String   @id @default(uuid())
-  descricao      String   // "Conta de Luz", "Fornecedor de Salgados"
+  descricao      String   // Ex: Conta de luz, Fornecedor
   valor          Float
-  categoria      String   // Fixa, Variável, Imposto
+  categoria      String
   dataVencimento DateTime
   status         String   // PENDENTE, PAGO
   createdAt      DateTime @default(now())
 }
 
-// --- 7. RELATÓRIOS E SIMULAÇÕES ---
+// --- 7. SIMULADOR DE LUCRO ---
 model Simulacao {
   id              String   @id @default(uuid())
   festaId         String?
@@ -136,6 +132,6 @@ model Simulacao {
   custoTotal      Float
   lucroEstimado   Float
   margem          Float
-  detalhes        String   // JSON string com os custos detalhados
+  detalhes        String   // Dados extras salvos como texto JSON
   createdAt       DateTime @default(now())
 }
