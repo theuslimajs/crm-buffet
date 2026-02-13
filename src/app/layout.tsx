@@ -1,192 +1,129 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
-import { logout } from "./actions";
 import { 
-  LayoutDashboard, CalendarDays, Target, PackageSearch, 
-  Wallet, ListTodo, Calendar, TrendingUp, 
-  Settings, LogOut, ShieldCheck, Ticket, Calculator, PlusCircle
-} from "lucide-react";
+  LayoutDashboard, 
+  Users, 
+  PartyPopper, 
+  DollarSign, 
+  Package, 
+  CalendarCheck, 
+  Calculator, 
+  Settings, 
+  LogOut 
+} from "lucide-react"; // Importando todos os ícones necessários
+import { logout } from "./actions";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BuffetPro GM | Gestão 360°",
-  description: "ERP de Alta Performance para Eventos",
-  manifest: "/manifest.json", // Importante para instalar como App
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "BuffetGM",
-  },
+  title: "Buffet GM - Gestão",
+  description: "Sistema de Gestão CRM/ERP para Buffet",
 };
 
-export const viewport: Viewport = {
-  themeColor: "#0f172a",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-};
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get("session_user_id")?.value;
-  
-  // Busca o usuário e suas permissões no banco
-  let usuario = null;
-  if (sessionId) {
-    usuario = await prisma.usuario.findUnique({ where: { id: sessionId } });
-  }
-
-  const isLogged = !!usuario;
-  const isDono = usuario?.cargo === 'DONO'; // O Dono sempre vê tudo
-
-  // Função auxiliar para checar permissão (Dono OU a flag específica)
-  const temAcesso = (permissao: boolean | undefined) => isDono || !!permissao;
-
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="pt-BR">
-      <body className="bg-slate-50 min-h-screen font-sans flex text-slate-900 overflow-x-hidden">
-        {isLogged && (
-          <aside className="w-64 bg-slate-950 text-slate-400 flex-shrink-0 fixed h-full z-30 hidden md:flex flex-col border-r border-slate-800 shadow-2xl no-print">
-            
-            {/* LOGO E CABEÇALHO */}
-            <div className="p-6 flex items-center gap-3 border-b border-slate-900/50">
-              <div className="bg-slate-900 p-1 rounded-full border border-slate-700 shadow-sm overflow-hidden w-12 h-12 flex items-center justify-center flex-shrink-0">
-                 {/* Certifique-se que a imagem existe em public/images/logo-gm.jpg */}
-                 <img src="/images/logo-gm.jpg" alt="GM" className="w-full h-full object-cover" />
+      <body className={`${inter.className} bg-slate-950 text-slate-100 min-h-screen flex`}>
+        
+        {/* --- SIDEBAR (MENU LATERAL FIXO) --- */}
+        <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-50 shadow-2xl">
+          
+          {/* LOGO DA EMPRESA */}
+          <div className="p-6 border-b border-slate-800/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <span className="font-black text-white text-lg">GM</span>
               </div>
               <div>
-                <h1 className="text-lg font-black text-white tracking-tighter italic leading-tight">
-                  BUFFET<span className="text-emerald-500">GM</span>
-                </h1>
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                  {usuario?.cargo || 'Painel Admin'}
-                </p>
+                <h1 className="font-bold text-white tracking-tight leading-tight">BUFFET GM</h1>
+                <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Painel Administrativo</p>
               </div>
             </div>
+          </div>
 
-            <nav className="flex-1 px-4 space-y-1 overflow-y-auto pb-6 custom-scrollbar mt-4">
-              
-              {/* HOME - Visível para todos */}
-              <Link href="/" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group mb-4">
-                <LayoutDashboard size={18} className="group-hover:text-purple-400" />
-                <span className="text-sm font-bold">Visão Geral</span>
-              </Link>
+          {/* ÁREA DE NAVEGAÇÃO */}
+          <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
+            
+            {/* GRUPO: PRINCIPAL */}
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 mt-2">Visão Geral</p>
+            
+            <Link href="/" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <LayoutDashboard className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Dashboard</span>
+            </Link>
+            
+            <Link href="/leads" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <Users className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Leads (CRM)</span>
+            </Link>
 
-              {/* GRUPO: COMERCIAL */}
-              {(temAcesso(usuario?.podeVerLeads) || temAcesso(usuario?.podeVerRelatorios)) && (
-                <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 mt-4">Comercial</p>
-              )}
-              
-              {temAcesso(usuario?.podeVerLeads) && (
-                <Link href="/leads" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <Target size={18} className="group-hover:text-blue-400" />
-                  <span className="text-sm font-bold">Leads (CRM)</span>
-                </Link>
-              )}
-              
-              {temAcesso(usuario?.podeVerRelatorios) && (
-                <Link href="/relatorios" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <TrendingUp size={18} className="group-hover:text-emerald-400" />
-                  <span className="text-sm font-bold">Desempenho</span>
-                </Link>
-              )}
+            <Link href="/festas" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <PartyPopper className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Festas & Agenda</span>
+            </Link>
 
-              {/* GRUPO: OPERACIONAL */}
-              {(temAcesso(usuario?.podeVerCalendario) || temAcesso(usuario?.podeVerFestas) || temAcesso(usuario?.podeVerTarefas)) && (
-                 <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 mt-8">Operacional</p>
-              )}
-              
-              {temAcesso(usuario?.podeVerCalendario) && (
-                <Link href="/calendario" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <Calendar size={18} className="group-hover:text-purple-400" />
-                  <span className="text-sm font-bold">Calendário Master</span>
-                </Link>
-              )}
+            {/* LINHA SEPARADORA */}
+            <div className="my-4 border-t border-slate-800/50"></div>
 
-              {temAcesso(usuario?.podeVerFestas) && (
-                <>
-                  <Link href="/festas" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                    <CalendarDays size={18} className="group-hover:text-emerald-400" />
-                    <span className="text-sm font-bold">Agenda de Festas</span>
-                  </Link>
-                  <Link href="/festas/nova" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                    <PlusCircle size={18} className="group-hover:text-emerald-400" />
-                    <span className="text-sm font-bold">Nova Festa</span>
-                  </Link>
-                  <Link href="/convites" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                    <Ticket size={18} className="group-hover:text-pink-400" />
-                    <span className="text-sm font-bold">Convites</span>
-                  </Link>
-                </>
-              )}
+            {/* GRUPO: GESTÃO */}
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Gestão</p>
 
-              {temAcesso(usuario?.podeVerTarefas) && (
-                <Link href="/tarefas" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <ListTodo size={18} className="group-hover:text-orange-400" />
-                  <span className="text-sm font-bold">Tarefas</span>
-                </Link>
-              )}
+            <Link href="/financeiro" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <DollarSign className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Financeiro</span>
+            </Link>
 
-              {/* GRUPO: GESTÃO */}
-              {(temAcesso(usuario?.podeVerFinanceiro) || temAcesso(usuario?.podeVerEstoque)) && (
-                <p className="px-4 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 mt-8">Gestão</p>
-              )}
-              
-              {/* Simulador: Disponível se ver financeiro ou festas */}
-              {(temAcesso(usuario?.podeVerFinanceiro) || temAcesso(usuario?.podeVerFestas)) && (
-                <Link href="/simulador" className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-purple-600/10 text-white border border-purple-600/20 mb-2 shadow-sm">
-                  <Calculator size={18} className="text-purple-400" />
-                  <span className="text-sm font-bold">Simulador Lucro</span>
-                </Link>
-              )}
+            <Link href="/estoque" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <Package className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Estoque</span>
+            </Link>
 
-              {temAcesso(usuario?.podeVerFinanceiro) && (
-                <Link href="/financeiro" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <Wallet size={18} className="group-hover:text-emerald-400" />
-                  <span className="text-sm font-bold">Fluxo de Caixa</span>
-                </Link>
-              )}
+            <Link href="/tarefas" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <CalendarCheck className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Tarefas</span>
+            </Link>
 
-              {temAcesso(usuario?.podeVerEstoque) && (
-                <Link href="/estoque" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <PackageSearch size={18} className="group-hover:text-yellow-400" />
-                  <span className="text-sm font-bold">Estoque</span>
-                </Link>
-              )}
+            {/* LINHA SEPARADORA */}
+            <div className="my-4 border-t border-slate-800/50"></div>
 
-              {/* CONFIGURAÇÕES: Apenas DONO */}
-              {isDono && (
-                <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-slate-900 hover:text-white transition group">
-                  <ShieldCheck size={18} className="group-hover:text-purple-400" />
-                  <span className="text-sm font-bold">Configurações</span>
-                </Link>
-              )}
+            {/* GRUPO: FERRAMENTAS */}
+            <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Ferramentas</p>
 
-            </nav>
+            <Link href="/simulador" className="flex items-center gap-3 px-4 py-3 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-xl transition-all shadow-sm">
+              <Calculator className="w-5 h-5" />
+              <span className="font-bold">Simulador Lucro</span>
+            </Link>
 
-            <div className="p-6 border-t border-slate-900 bg-slate-950/80">
-              <div className="flex items-center gap-3 px-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-800 flex items-center justify-center text-white font-black text-[10px] shadow-lg">
-                  {usuario?.nome?.substring(0,2).toUpperCase()}
-                </div>
-                <div className="overflow-hidden">
-                  <p className="text-[10px] font-black text-white truncate uppercase tracking-tighter">{usuario?.nome}</p>
-                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{usuario?.email}</p>
-                </div>
-              </div>
-              <form action={logout}>
-                <button className="flex items-center gap-2 px-2 py-2 text-[9px] font-black text-red-500/70 hover:text-red-500 uppercase tracking-widest w-full text-left transition">
-                  <LogOut size={14} /> Sair do Sistema
-                </button>
-              </form>
-            </div>
-          </aside>
-        )}
-        <main className={`${isLogged ? 'md:ml-64' : 'w-full'} flex-1 p-6 lg:p-12 min-h-screen transition-all duration-300`}>
+            <Link href="/configuracoes" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">
+              <Settings className="w-5 h-5 group-hover:text-emerald-400 transition-colors" />
+              <span className="font-medium">Configurações</span>
+            </Link>
+
+          </nav>
+
+          {/* BOTÃO DE SAIR */}
+          <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+            <form action={logout}>
+              <button className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 p-3 rounded-xl transition-all font-bold text-sm group">
+                <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                SAIR DO SISTEMA
+              </button>
+            </form>
+          </div>
+        </aside>
+
+        {/* --- ÁREA DE CONTEÚDO PRINCIPAL --- */}
+        {/* ml-64 empurra o conteúdo para a direita para não ficar embaixo do menu */}
+        <main className="flex-1 ml-64 min-h-screen bg-slate-950">
           {children}
         </main>
+
       </body>
     </html>
   );

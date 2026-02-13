@@ -6,13 +6,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 /**
- * FUNÇÃO AJUDANTE (Helpers)
- * Garante que datas sejam sempre válidas para não quebrar o banco
+ * AJUDANTE: Garante datas válidas para não quebrar o banco
  */
 function safeDate(dateStr: any): Date {
-  if (!dateStr) return new Date() // Se vazio, retorna hoje
+  if (!dateStr) return new Date()
   const d = new Date(dateStr)
-  return isNaN(d.getTime()) ? new Date() : d // Se inválido, retorna hoje
+  return isNaN(d.getTime()) ? new Date() : d
 }
 
 /** * ==========================================
@@ -65,9 +64,7 @@ export async function createUsuario(formData: FormData) {
       }
     })
     revalidatePath('/configuracoes')
-  } catch (e) {
-    console.error("Erro ao criar usuário", e)
-  }
+  } catch (e) { console.error("Erro usuario", e) }
 }
 
 export async function updatePermissoes(formData: FormData) {
@@ -151,26 +148,39 @@ export async function createFesta(formData: FormData) {
   const clienteId = formData.get('clienteId') as string
   const pacoteId = formData.get('pacoteId') as string
   const dataFesta = safeDate(formData.get('dataFesta'))
+  const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
 
-  // Validação simples: sem cliente ou pacote, não salva
-  if (!clienteId || !pacoteId) {
-    console.error("Tentativa de criar festa sem cliente ou pacote")
-    return
-  }
+  if (!clienteId || !pacoteId) return
 
   try {
-    await prisma.festa.create({
+    // 1. Cria a Festa (Agenda)
+    const novaFesta = await prisma.festa.create({
       data: {
         nomeAniversariante: formData.get('nomeAniversariante') as string,
         dataFesta: dataFesta,
-        valorTotal: parseFloat(formData.get('valorTotal') as string) || 0,
+        valorTotal: valorTotal,
         qtdPessoas: parseInt(formData.get('qtdPessoas') as string) || 0,
         status: 'AGENDADO',
         cliente: { connect: { id: clienteId } },
         pacote: { connect: { id: pacoteId } }
       }
     })
-    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
+
+    // 2. CRIA AUTOMATICAMENTE O FINANCEIRO (CONTAS A RECEBER)
+    if (valorTotal > 0) {
+      await prisma.pagamento.create({
+        data: {
+          festaId: novaFesta.id,
+          valor: valorTotal,
+          status: "PENDENTE",
+          dataVencimento: dataFesta,
+          metodo: "A DEFINIR",
+          parcela: 1
+        }
+      })
+    }
+
+    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/'); revalidatePath('/financeiro')
   } catch (error) {
     console.error("Erro ao criar festa:", error)
   }
@@ -178,8 +188,12 @@ export async function createFesta(formData: FormData) {
 
 export async function deleteFesta(formData: FormData) {
   try {
-    await prisma.festa.delete({ where: { id: formData.get('id') as string } })
-    revalidatePath('/festas'); revalidatePath('/calendario')
+    const id = formData.get('id') as string
+    // Tenta deletar pagamentos vinculados primeiro para evitar erro
+    await prisma.pagamento.deleteMany({ where: { festaId: id } })
+    await prisma.festa.delete({ where: { id } })
+    
+    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/'); revalidatePath('/financeiro')
   } catch (e) { console.error(e) }
 }
 
@@ -316,7 +330,7 @@ export async function ajustarQuantidade(formData: FormData) {
 }
 
 /** * ==========================================
- * 6. FINANCEIRO (PROTEGIDO CONTRA ERROS)
+ * 6. FINANCEIRO (INTEGRADO)
  * ========================================== */
 
 export async function confirmarPagamento(formData: FormData) {
@@ -325,13 +339,12 @@ export async function confirmarPagamento(formData: FormData) {
       where: { id: formData.get('id') as string }, 
       data: { status: "PAGO" } 
     })
-    revalidatePath('/festas'); revalidatePath('/financeiro'); revalidatePath('/')
+    revalidatePath('/festas'); revalidatePath('/financeiro'); revalidatePath('/'); revalidatePath('/calendario')
   } catch (e) { console.error("Erro confirmar pagto", e) }
 }
 
 export async function updatePagamento(formData: FormData) {
   try {
-    // Uso safeDate para evitar Invalid Date se o campo vier vazio
     await prisma.pagamento.update({ 
       where: { id: formData.get('id') as string }, 
       data: { 
@@ -339,7 +352,7 @@ export async function updatePagamento(formData: FormData) {
         dataVencimento: safeDate(formData.get('dataVencimento'))
       } 
     })
-    revalidatePath('/festas')
+    revalidatePath('/festas'); revalidatePath('/'); revalidatePath('/calendario'); revalidatePath('/financeiro')
   } catch (e) { console.error("Erro update pagto", e) }
 }
 
@@ -349,10 +362,9 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
     const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
     const valorEntrada = parseFloat(formData.get('valorEntrada') as string) || 0
     
-    // Deleta anteriores para refazer a lógica
     await prisma.pagamento.deleteMany({ where: { festaId } })
     
-    // Parcela de entrada (PIX) - Data Hoje
+    // Parcela 1: Entrada (PAGO)
     await prisma.pagamento.create({ 
         data: { 
           festaId, 
@@ -364,7 +376,7 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
         } 
     })
     
-    // Parcela restante (se houver)
+    // Parcela 2: Restante (PENDENTE)
     if (valorTotal > valorEntrada) {
         await prisma.pagamento.create({
             data: { 
@@ -372,13 +384,12 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
                 valor: valorTotal - valorEntrada, 
                 status: "PENDENTE", 
                 parcela: 1, 
-                // Se não vier data, assume hoje para não travar
                 dataVencimento: safeDate(formData.get('dataInicio')), 
                 metodo: "PIX" 
             }
         })
     }
-    revalidatePath('/festas')
+    revalidatePath('/festas'); revalidatePath('/'); revalidatePath('/calendario'); revalidatePath('/financeiro')
   } catch (e) { console.error("Erro gerar financeiro", e) }
 }
 
@@ -389,26 +400,25 @@ export async function createDespesa(formData: FormData) {
         descricao: formData.get('descricao') as string || "Despesa sem nome",
         valor: parseFloat(formData.get('valor') as string) || 0,
         categoria: formData.get('categoria') as string || "Geral",
-        // Evita erro de data inválida
         dataVencimento: safeDate(formData.get('dataVencimento')),
         status: 'PENDENTE'
       }
     })
-    revalidatePath('/financeiro'); revalidatePath('/')
+    revalidatePath('/financeiro'); revalidatePath('/'); revalidatePath('/calendario')
   } catch (e) { console.error("Erro criar despesa", e) }
 }
 
 export async function pagarDespesa(formData: FormData) {
   try {
     await prisma.despesa.update({ where: { id: formData.get('id') as string }, data: { status: 'PAGO' } })
-    revalidatePath('/financeiro'); revalidatePath('/')
+    revalidatePath('/financeiro'); revalidatePath('/'); revalidatePath('/calendario')
   } catch (e) { console.error(e) }
 }
 
 export async function deleteDespesa(formData: FormData) {
   try {
     await prisma.despesa.delete({ where: { id: formData.get('id') as string } })
-    revalidatePath('/financeiro'); revalidatePath('/')
+    revalidatePath('/financeiro'); revalidatePath('/'); revalidatePath('/calendario')
   } catch (e) { console.error(e) }
 }
 
@@ -416,18 +426,26 @@ export async function deleteDespesa(formData: FormData) {
  * 7. SIMULADOR & CONVITES
  * ========================================== */
 
-export async function salvarSimulacao(festaId: string, dados: any) {
+// NOVO: Simulador com Receita para cálculo de lucro
+export async function salvarSimulacao(formData: FormData) {
   try {
+    const receita = parseFloat(formData.get('receita') as string) || 0
+    const custo = parseFloat(formData.get('custo') as string) || 0
+    
+    // Cálculo do Lucro
+    const lucro = receita - custo
+    const margem = receita > 0 ? (lucro / receita) * 100 : 0
+    
     await prisma.simulacao.create({
       data: {
-        festaId, 
-        receitaPrevista: dados.receita, 
-        custoTotal: dados.custos, 
-        lucroEstimado: dados.lucro, 
-        margem: dados.margem, 
-        detalhes: JSON.stringify(dados.detalhes)
+        receitaPrevista: receita,
+        custoTotal: custo,
+        lucroEstimado: lucro,
+        margem: margem,
+        detalhes: formData.get('detalhes') as string || "{}"
       }
     })
+    
     revalidatePath('/relatorios')
   } catch (e) { console.error(e) }
 }
