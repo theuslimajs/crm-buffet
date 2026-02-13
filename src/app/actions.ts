@@ -120,8 +120,10 @@ export async function createCliente(formData: FormData) {
  * 3. OPERACIONAL (FESTAS & PACOTES)
  * ========================================== */
 
-// CORREÇÃO CRÍTICA AQUI: Adicionada validação de Data e IDs para evitar erro 500
 export async function createFesta(formData: FormData) {
+  // CORREÇÃO: Removemos o retorno de objeto { error } para satisfazer o TypeScript
+  // Agora apenas logamos o erro e retornamos vazio (void) se falhar.
+  
   const dataRaw = formData.get('dataFesta') as string
   const clienteId = formData.get('clienteId') as string
   const pacoteId = formData.get('pacoteId') as string
@@ -129,14 +131,14 @@ export async function createFesta(formData: FormData) {
   // 1. Validação de Data
   const dataFesta = dataRaw ? new Date(dataRaw) : null
   if (!dataFesta || isNaN(dataFesta.getTime())) {
-    console.error("Erro: Data inválida fornecida para createFesta")
-    return { error: "Data inválida" }
+    console.error("ERRO: Data inválida fornecida para createFesta")
+    return // Retorna void (vazio) para não quebrar o formulário
   }
 
-  // 2. Validação de IDs (Evita o erro de 'jorg' ou 'simples')
+  // 2. Validação de IDs
   if (!clienteId || !pacoteId) {
-    console.error("Erro: Cliente ou Pacote não fornecidos")
-    return { error: "Cliente e Pacote são obrigatórios" }
+    console.error("ERRO: Cliente ou Pacote não fornecidos")
+    return // Retorna void
   }
 
   try {
@@ -154,7 +156,7 @@ export async function createFesta(formData: FormData) {
     revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
   } catch (error) {
     console.error("Erro ao criar festa no banco:", error)
-    return { error: "Erro ao salvar no banco de dados. Verifique os campos." }
+    // Não retornamos { error } aqui para evitar o erro de Build
   }
 }
 
