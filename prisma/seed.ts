@@ -1,26 +1,37 @@
 import { PrismaClient } from '@prisma/client'
 
-// Na versão 5, isso funciona direto com o .env!
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Semeando banco (Versão Estável)...')
-  
-  // Limpa tudo
-  await prisma.festa.deleteMany().catch(() => {})
-  await prisma.cliente.deleteMany().catch(() => {})
-  await prisma.pacote.deleteMany().catch(() => {})
-
-  const cliente = await prisma.cliente.create({
-    data: {
+  // Criar o teu utilizador de Administrador
+  const admin = await prisma.usuario.upsert({
+    where: { email: 'matheus.manaira@hotmail.com' },
+    update: {},
+    create: {
       nome: 'Matheus Henrique de Lima',
-      telefone: '11999999999',
-      email: 'matheus@estudante.com'
-    }
+      email: 'matheus.manaira@hotmail.com',
+      senha: 'admin123', // Podes mudar esta senha depois
+      cargo: 'DONO',
+      podeVerLeads: true,
+      podeVerCalendario: true,
+      podeVerFestas: true,
+      podeVerTarefas: true,
+      podeVerEstoque: true,
+      podeVerFinanceiro: true,
+      podeVerRelatorios: true,
+    },
   })
 
-  console.log(`✅ SUCESSO! Cliente ${cliente.nome} criado com Prisma 5.`)
+  console.log({ admin })
+  console.log('Utilizador administrador criado com sucesso!')
 }
 
 main()
-  .finally(() => prisma.$disconnect())
+  .then(async () => {
+    await prisma.$disconnect()
+  })
+  .catch(async (e) => {
+    console.error(e)
+    await prisma.$disconnect()
+    process.exit(1)
+  })
