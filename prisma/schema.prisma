@@ -1,0 +1,141 @@
+// Configuração do Cliente Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuração do Banco de Dados (Neon / PostgreSQL)
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- 1. USUÁRIOS E PERMISSÕES ---
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  cargo     String   // DONO, GERENTE, VENDEDOR, etc.
+  createdAt DateTime @default(now())
+
+  // Permissões de Acesso (Switches do Painel)
+  podeVerLeads      Boolean @default(false)
+  podeVerCalendario Boolean @default(false)
+  podeVerFestas     Boolean @default(false)
+  podeVerTarefas    Boolean @default(false)
+  podeVerEstoque    Boolean @default(false)
+  podeVerFinanceiro Boolean @default(false)
+  podeVerRelatorios Boolean @default(false)
+}
+
+// --- 2. COMERCIAL (CRM) ---
+model Lead {
+  id         String    @id @default(uuid())
+  nome       String
+  telefone   String
+  status     String    // NOVO, EM_NEGOCIACAO, FECHADO, PERDIDO
+  origem     String?   // Instagram, Google, Indicação...
+  dataVisita DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model Cliente {
+  id        String   @id @default(uuid())
+  nome      String
+  telefone  String
+  email     String?
+  createdAt DateTime @default(now())
+  festas    Festa[]  // Relacionamento: Um cliente pode ter várias festas
+}
+
+// --- 3. OPERACIONAL (FESTAS) ---
+model Festa {
+  id                 String   @id @default(uuid())
+  nomeAniversariante String
+  dataFesta          DateTime
+  horaInicio         String   @default("19:00")
+  horaFim            String   @default("23:00")
+  valorTotal         Float
+  qtdPessoas         Int
+  status             String   // AGENDADO, REALIZADO, CANCELADO
+  
+  // Relacionamentos
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  
+  pacoteId  String?
+  pacote    Pacote? @relation(fields: [pacoteId], references: [id])
+
+  pagamentos Pagamento[] // Receitas vinculadas a esta festa
+  
+  createdAt DateTime @default(now())
+}
+
+model Pacote {
+  id          String  @id @default(uuid())
+  nome        String  // Ex: "Pacote Ouro", "Escolar"
+  precoBase   Float
+  descricao   String?
+  festas      Festa[]
+}
+
+// --- 4. TAREFAS E EQUIPE ---
+model Tarefa {
+  id          String   @id @default(uuid())
+  descricao   String
+  equipe      String   // Cozinha, Limpeza, Garçons...
+  dataLimite  DateTime
+  status      String   // PENDENTE, CONCLUIDA
+  createdAt   DateTime @default(now())
+}
+
+// --- 5. ESTOQUE ---
+model ItemEstoque {
+  id            String   @id @default(uuid())
+  nome          String
+  categoria     String   // Bebidas, Descartáveis...
+  quantidade    Int
+  estoqueMinimo Int
+  unidade       String   @default("UN") // UN, KG, L
+  updatedAt     DateTime @updatedAt
+}
+
+// --- 6. FINANCEIRO ---
+
+// Receitas (Entradas das Festas)
+model Pagamento {
+  id             String   @id @default(uuid())
+  valor          Float
+  dataVencimento DateTime
+  status         String   // PENDENTE, PAGO, ATRASADO
+  parcela        Int      // 0 = Entrada/Única, 1 = 1ª Parcela...
+  metodo         String   // PIX, CARTAO, DINHEIRO
+  
+  festaId        String?
+  festa          Festa?   @relation(fields: [festaId], references: [id])
+  
+  createdAt      DateTime @default(now())
+}
+
+// Despesas (Contas a Pagar)
+model Despesa {
+  id             String   @id @default(uuid())
+  descricao      String   // "Conta de Luz", "Fornecedor de Salgados"
+  valor          Float
+  categoria      String   // Fixa, Variável, Imposto
+  dataVencimento DateTime
+  status         String   // PENDENTE, PAGO
+  createdAt      DateTime @default(now())
+}
+
+// --- 7. RELATÓRIOS E SIMULAÇÕES ---
+model Simulacao {
+  id              String   @id @default(uuid())
+  festaId         String?
+  receitaPrevista Float
+  custoTotal      Float
+  lucroEstimado   Float
+  margem          Float
+  detalhes        String   // JSON string com os custos detalhados
+  createdAt       DateTime @default(now())
+}
