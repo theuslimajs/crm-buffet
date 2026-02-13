@@ -2,23 +2,40 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  const cookie = request.cookies.get('session_user_id')
-  const { pathname } = request.nextUrl
+  // Pega o cookie de sessão que criamos no login
+  const session = request.cookies.get('session_user_id')?.value
 
-  // Se NÃO tem cookie e NÃO está na página de login, manda para o login
-  if (!cookie && pathname !== '/login') {
+  // Lista de rotas que são públicas (não precisam de login)
+  const publicRoutes = ['/login', '/cadastro']
+  
+  // Verifica se a rota atual é pública
+  const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname)
+
+  // 1. Se NÃO tiver sessão e tentar acessar qualquer rota privada (dashboard, leads, etc.)
+  // Redireciona para o Login
+  if (!session && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Se JÁ tem cookie e tenta ir para o login, manda para a home
-  if (cookie && pathname === '/login') {
+  // 2. Se JÁ tiver sessão e tentar acessar o Login
+  // Redireciona direto para o Dashboard (não precisa logar de novo)
+  if (session && isPublicRoute) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()
 }
 
-// Configura quais páginas o middleware deve vigiar
+// Configuração: Em quais rotas o middleware deve rodar?
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Aplica a segurança em todas as rotas, EXCETO:
+     * - api (rotas de API)
+     * - _next/static (arquivos estáticos)
+     * - _next/image (imagens otimizadas)
+     * - favicon.ico (ícone do site)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 }
