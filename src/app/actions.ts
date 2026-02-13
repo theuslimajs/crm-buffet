@@ -9,17 +9,25 @@ import { redirect } from 'next/navigation'
  * 1. AUTENTICAÇÃO E USUÁRIOS
  * ========================================== */
 
+// CORREÇÃO IMPORTANTE: Adicionado 'prevState' para compatibilidade com useActionState do React 19
 export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const senha = formData.get('senha') as string
+  
   const usuario = await prisma.usuario.findUnique({ where: { email } })
 
-  if (!usuario || usuario.senha !== senha) return { error: "Credenciais inválidas" }
+  if (!usuario || usuario.senha !== senha) {
+    return { error: "Credenciais inválidas" }
+  }
 
   const cookieStore = await cookies()
   cookieStore.set('session_user_id', usuario.id, { 
-    maxAge: 60 * 60 * 24, path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production'
+    maxAge: 60 * 60 * 24, 
+    path: '/', 
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production'
   })
+  
   redirect('/')
 }
 
@@ -85,7 +93,10 @@ export async function updateLeadStatus(formData: FormData) {
   const dataVisitaRaw = formData.get('dataVisita') as string
   await prisma.lead.update({
     where: { id },
-    data: { status: formData.get('status') as string, dataVisita: dataVisitaRaw ? new Date(dataVisitaRaw) : null }
+    data: { 
+      status: formData.get('status') as string, 
+      dataVisita: dataVisitaRaw ? new Date(dataVisitaRaw) : null 
+    }
   })
   revalidatePath('/leads')
 }
@@ -96,7 +107,13 @@ export async function deleteLead(formData: FormData) {
 }
 
 export async function createCliente(formData: FormData) {
-  await prisma.cliente.create({ data: { nome: formData.get('nome') as string, telefone: formData.get('telefone') as string, email: formData.get('email') as string || "" } })
+  await prisma.cliente.create({ 
+    data: { 
+      nome: formData.get('nome') as string, 
+      telefone: formData.get('telefone') as string, 
+      email: formData.get('email') as string || "" 
+    } 
+  })
   revalidatePath('/festas/nova')
 }
 
@@ -125,7 +142,13 @@ export async function deleteFesta(formData: FormData) {
 }
 
 export async function createPacote(formData: FormData) {
-  await prisma.pacote.create({ data: { nome: formData.get('nome') as string, precoBase: parseFloat(formData.get('precoBase') as string) || 0, descricao: "" } })
+  await prisma.pacote.create({ 
+    data: { 
+      nome: formData.get('nome') as string, 
+      precoBase: parseFloat(formData.get('precoBase') as string) || 0, 
+      descricao: "" 
+    } 
+  })
   revalidatePath('/festas')
 }
 
@@ -168,9 +191,11 @@ export async function toggleTarefaStatus(formData: FormData) {
 export async function createItemEstoque(formData: FormData) {
   await prisma.itemEstoque.create({
     data: { 
-      nome: formData.get('nome') as string, categoria: formData.get('categoria') as string, 
+      nome: formData.get('nome') as string, 
+      categoria: formData.get('categoria') as string, 
       quantidade: parseInt(formData.get('quantidade') as string) || 0, 
-      estoqueMinimo: parseInt(formData.get('estoqueMinimo') as string) || 0, unidade: "UN" 
+      estoqueMinimo: parseInt(formData.get('estoqueMinimo') as string) || 0, 
+      unidade: "UN" 
     }
   })
   revalidatePath('/estoque')
@@ -203,6 +228,7 @@ export async function registrarSaida(formData: FormData) {
   revalidatePath('/estoque')
 }
 
+// Mantido para compatibilidade com versões antigas das páginas
 export async function movimentarEstoque(formData: FormData) {
   const id = formData.get('id') as string
   const tipo = formData.get('tipo') as string
@@ -249,11 +275,23 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
   const festaId = formData.get('festaId') as string
   const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
   const valorEntrada = parseFloat(formData.get('valorEntrada') as string) || 0
+  
   await prisma.pagamento.deleteMany({ where: { festaId } })
-  await prisma.pagamento.create({ data: { festaId, valor: valorEntrada, status: "PAGO", parcela: 0, dataVencimento: new Date(), metodo: "PIX" } })
+  
+  await prisma.pagamento.create({ 
+      data: { festaId, valor: valorEntrada, status: "PAGO", parcela: 0, dataVencimento: new Date(), metodo: "PIX" } 
+  })
+  
   if (valorTotal > valorEntrada) {
       await prisma.pagamento.create({
-          data: { festaId, valor: valorTotal - valorEntrada, status: "PENDENTE", parcela: 1, dataVencimento: new Date(formData.get('dataInicio') as string || new Date()), metodo: "PIX" }
+          data: { 
+              festaId, 
+              valor: valorTotal - valorEntrada, 
+              status: "PENDENTE", 
+              parcela: 1, 
+              dataVencimento: new Date(formData.get('dataInicio') as string || new Date()), 
+              metodo: "PIX" 
+          }
       })
   }
   revalidatePath('/festas')
@@ -289,7 +327,12 @@ export async function deleteDespesa(formData: FormData) {
 export async function salvarSimulacao(festaId: string, dados: any) {
   await prisma.simulacao.create({
     data: {
-      festaId, receitaPrevista: dados.receita, custoTotal: dados.custos, lucroEstimado: dados.lucro, margem: dados.margem, detalhes: JSON.stringify(dados.detalhes)
+      festaId, 
+      receitaPrevista: dados.receita, 
+      custoTotal: dados.custos, 
+      lucroEstimado: dados.lucro, 
+      margem: dados.margem, 
+      detalhes: JSON.stringify(dados.detalhes)
     }
   })
   revalidatePath('/relatorios')
@@ -301,13 +344,27 @@ export async function getFestaParaConvite(id: string) {
 
 export async function enviarConviteWpp(festaId: string, base64: string) {
   const festa = await prisma.festa.findUnique({ where: { id: festaId }, include: { cliente: true } })
+  
   if (!festa?.cliente.telefone) return { error: "Telefone ausente" }
+  
   try {
     const res = await fetch(`${process.env.EVOLUTION_API_URL}/message/sendMedia/BuffetPro`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': process.env.EVOLUTION_API_KEY! },
-      body: JSON.stringify({ number: `55${festa.cliente.telefone.replace(/\D/g, '')}`, mediaMessage: { mediatype: "image", caption: `Convite de ${festa.nomeAniversariante}`, media: base64.split(',')[1] } })
+      headers: { 
+          'Content-Type': 'application/json', 
+          'apikey': process.env.EVOLUTION_API_KEY! 
+      },
+      body: JSON.stringify({ 
+          number: `55${festa.cliente.telefone.replace(/\D/g, '')}`, 
+          mediaMessage: { 
+              mediatype: "image", 
+              caption: `Convite de ${festa.nomeAniversariante}`, 
+              media: base64.split(',')[1] 
+          } 
+      })
     })
     return await res.json()
-  } catch { return { error: "Erro na API" } }
+  } catch { 
+      return { error: "Erro na API" } 
+  }
 }
