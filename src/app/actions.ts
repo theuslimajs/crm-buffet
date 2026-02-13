@@ -179,6 +179,20 @@ export async function deleteFesta(formData: FormData) {
   } catch (e) { console.error(e) }
 }
 
+export async function updatePagamento(formData: FormData) {
+  try {
+    const id = formData.get('id') as string
+    await prisma.pagamento.update({
+      where: { id },
+      data: { 
+        valor: parseFloat(formData.get('valor') as string) || 0,
+        dataVencimento: safeDate(formData.get('dataVencimento'))
+      }
+    })
+    revalidatePath('/festas'); revalidatePath('/financeiro')
+  } catch (e) { console.error(e) }
+}
+
 export async function createPacote(formData: FormData) {
   try {
     await prisma.pacote.create({ 
@@ -231,7 +245,7 @@ export async function toggleTarefaStatus(formData: FormData) {
 }
 
 /** * ==========================================
- * 5. ESTOQUE (COM MOVIMENTAÇÃO COMPLETA)
+ * 5. ESTOQUE (MOVIMENTAÇÃO COMPLETA)
  * ========================================== */
 
 export async function createItemEstoque(formData: FormData) {
@@ -252,6 +266,32 @@ export async function createItemEstoque(formData: FormData) {
 export async function deleteItemEstoque(formData: FormData) {
   try {
     await prisma.itemEstoque.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
+}
+
+export async function registrarEntrada(formData: FormData) {
+  try {
+    const id = formData.get('id') as string
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item) {
+      await prisma.itemEstoque.update({ 
+        where: { id }, data: { quantidade: item.quantidade + 1 } 
+      })
+    }
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
+}
+
+export async function registrarSaida(formData: FormData) {
+  try {
+    const id = formData.get('id') as string
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item) {
+      await prisma.itemEstoque.update({ 
+        where: { id }, data: { quantidade: Math.max(0, item.quantidade - 1) } 
+      })
+    }
     revalidatePath('/estoque')
   } catch (e) { console.error(e) }
 }
