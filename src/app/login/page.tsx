@@ -1,22 +1,29 @@
-'use client' // Importante: hooks só funcionam em Client Components
+'use client' //
 
 import { useActionState } from 'react'
-import { login } from './actions'
+import { login } from '../actions' // Verifique se o caminho está correto para o seu actions.ts
 
 export default function LoginPage() {
-  // O useActionState gere o estado do formulário (erros, carregamento, etc.)
+  // O hook useActionState gerencia o estado do formulário, erros e carregamento
   const [state, formAction, isPending] = useActionState(login, null)
 
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-black text-white tracking-tighter">BUFFET GM</h1>
+          <p className="text-slate-500 font-medium">Aceda ao seu painel de gestão</p>
+        </div>
+
         <div className="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-          {/* Agora usamos formAction em vez de login diretamente */}
+          {/* Usamos formAction em vez de login diretamente para o React gerir o estado */}
           <form action={formAction} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">E-mail</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
+                E-mail
+              </label>
               <input 
-                name="email" 
+                name="email" // Deve ser exatamente "email"
                 type="email" 
                 placeholder="matheus.manaira@hotmail.com" 
                 required 
@@ -25,9 +32,11 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">Palavra-passe</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
+                Palavra-passe
+              </label>
               <input 
-                name="password" 
+                name="senha" // MUDANÇA: Alterado para "senha" para bater com o actions.ts
                 type="password" 
                 placeholder="••••••••" 
                 required 
@@ -35,11 +44,13 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Exibe o erro se as credenciais estiverem erradas */}
+            {/* Exibe mensagem de erro caso as credenciais falhem */}
             {state?.error && (
-              <p className="text-red-400 text-xs font-bold text-center bg-red-950/30 p-3 rounded-xl border border-red-900/50">
-                {state.error}
-              </p>
+              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl">
+                <p className="text-red-500 text-xs font-bold text-center">
+                  {state.error}
+                </p>
+              </div>
             )}
 
             <button 
