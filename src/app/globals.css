@@ -125,15 +125,38 @@
   }
 }
 
-/* ... seu css atual ... */
+/* --- UTILITÁRIOS CUSTOMIZADOS --- */
+
+@layer utilities {
+  /* Scrollbar discreta para o Menu Lateral */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-800 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-emerald-500/50;
+  }
+  
+  /* Esconder scrollbar se necessário */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* --- CONFIGURAÇÃO DE IMPRESSÃO (RELATÓRIOS E CONTRATOS) --- */
 
 @media print {
-  /* Esconde a barra lateral, botões e inputs */
-  aside, button, input, select, .no-print {
+  /* Remove elementos desnecessários na folha */
+  aside, button, input, select, .no-print, nav, form {
     display: none !important;
   }
 
-  /* Ajusta o layout para papel A4 */
+  /* Reseta layout para o papel */
   body, main {
     background-color: white !important;
     color: black !important;
@@ -141,23 +164,35 @@
     margin: 0 !important;
     width: 100% !important;
     position: static !important;
-    margin-left: 0 !important; /* Remove margem da sidebar */
+    margin-left: 0 !important; /* Remove o espaço da sidebar */
   }
 
-  /* Força fundos escuros a ficarem claros para impressão */
-  .bg-slate-900, .bg-slate-950 {
+  /* Garante que os cards fiquem visíveis mas sem fundos escuros */
+  .bg-slate-900, .bg-slate-950, .bg-slate-900\/50 {
     background-color: white !important;
     color: black !important;
-    border: 1px solid #ddd !important;
-  }
-
-  /* Tira sombras */
-  * {
+    border: 1px solid #eee !important;
     box-shadow: none !important;
   }
 
-  /* Garante que textos brancos fiquem pretos */
-  .text-white, .text-slate-400, .text-slate-500 {
+  /* Força cores de texto para preto */
+  h1, h2, h3, p, span, div {
     color: black !important;
+  }
+
+  /* Ajusta tabelas para impressão */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+    color: black !important;
+  }
+
+  /* Força a quebra de página se necessário */
+  .page-break {
+    page-break-before: always;
   }
 }
