@@ -5,6 +5,16 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+/**
+ * FUNÇÃO AJUDANTE (Helpers)
+ * Garante que datas sejam sempre válidas para não quebrar o banco
+ */
+function safeDate(dateStr: any): Date {
+  if (!dateStr) return new Date() // Se vazio, retorna hoje
+  const d = new Date(dateStr)
+  return isNaN(d.getTime()) ? new Date() : d // Se inválido, retorna hoje
+}
+
 /** * ==========================================
  * 1. AUTENTICAÇÃO E USUÁRIOS
  * ========================================== */
@@ -13,19 +23,23 @@ export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const senha = formData.get('senha') as string
   
-  const usuario = await prisma.usuario.findUnique({ where: { email } })
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { email } })
 
-  if (!usuario || usuario.senha !== senha) {
-    return { error: "Credenciais inválidas" }
+    if (!usuario || usuario.senha !== senha) {
+      return { error: "Credenciais inválidas" }
+    }
+
+    const cookieStore = await cookies()
+    cookieStore.set('session_user_id', usuario.id, { 
+      maxAge: 60 * 60 * 24, 
+      path: '/', 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production'
+    })
+  } catch (error) {
+    return { error: "Erro ao conectar no banco." }
   }
-
-  const cookieStore = await cookies()
-  cookieStore.set('session_user_id', usuario.id, { 
-    maxAge: 60 * 60 * 24, 
-    path: '/', 
-    httpOnly: true, 
-    secure: process.env.NODE_ENV === 'production'
-  })
   
   redirect('/')
 }
@@ -37,38 +51,42 @@ export async function logout() {
 }
 
 export async function createUsuario(formData: FormData) {
-  const nome = formData.get('nome') as string
-  const email = formData.get('email') as string
-  const senha = formData.get('senha') as string
-  const cargo = formData.get('cargo') as string
-
-  await prisma.usuario.create({
-    data: { 
-      nome, email, senha, cargo,
-      podeVerLeads: true, podeVerCalendario: true, podeVerFestas: true, 
-      podeVerTarefas: true, podeVerEstoque: true,
-      podeVerFinanceiro: cargo === "DONO",
-      podeVerRelatorios: cargo === "DONO",
-    }
-  })
-  revalidatePath('/configuracoes')
+  try {
+    await prisma.usuario.create({
+      data: { 
+        nome: formData.get('nome') as string, 
+        email: formData.get('email') as string, 
+        senha: formData.get('senha') as string, 
+        cargo: formData.get('cargo') as string,
+        podeVerLeads: true, podeVerCalendario: true, podeVerFestas: true, 
+        podeVerTarefas: true, podeVerEstoque: true,
+        podeVerFinanceiro: formData.get('cargo') === "DONO",
+        podeVerRelatorios: formData.get('cargo') === "DONO",
+      }
+    })
+    revalidatePath('/configuracoes')
+  } catch (e) {
+    console.error("Erro ao criar usuário", e)
+  }
 }
 
 export async function updatePermissoes(formData: FormData) {
-  const id = formData.get('id') as string
-  await prisma.usuario.update({
-    where: { id },
-    data: {
-      podeVerLeads: formData.get('leads') === 'on',
-      podeVerCalendario: formData.get('calendario') === 'on',
-      podeVerFestas: formData.get('festas') === 'on',
-      podeVerTarefas: formData.get('tarefas') === 'on',
-      podeVerEstoque: formData.get('estoque') === 'on',
-      podeVerFinanceiro: formData.get('financeiro') === 'on',
-      podeVerRelatorios: formData.get('relatorios') === 'on',
-    }
-  })
-  revalidatePath('/configuracoes')
+  try {
+    const id = formData.get('id') as string
+    await prisma.usuario.update({
+      where: { id },
+      data: {
+        podeVerLeads: formData.get('leads') === 'on',
+        podeVerCalendario: formData.get('calendario') === 'on',
+        podeVerFestas: formData.get('festas') === 'on',
+        podeVerTarefas: formData.get('tarefas') === 'on',
+        podeVerEstoque: formData.get('estoque') === 'on',
+        podeVerFinanceiro: formData.get('financeiro') === 'on',
+        podeVerRelatorios: formData.get('relatorios') === 'on',
+      }
+    })
+    revalidatePath('/configuracoes')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
@@ -76,44 +94,53 @@ export async function updatePermissoes(formData: FormData) {
  * ========================================== */
 
 export async function createLead(formData: FormData) {
-  await prisma.lead.create({
-    data: { 
-      nome: formData.get('nome') as string, 
-      telefone: formData.get('telefone') as string,
-      origem: formData.get('origem') as string || "Direto",
-      status: 'NOVO' 
-    }
-  })
-  revalidatePath('/leads'); revalidatePath('/')
+  try {
+    await prisma.lead.create({
+      data: { 
+        nome: formData.get('nome') as string, 
+        telefone: formData.get('telefone') as string,
+        origem: formData.get('origem') as string || "Direto",
+        status: 'NOVO' 
+      }
+    })
+    revalidatePath('/leads'); revalidatePath('/')
+  } catch (e) { console.error(e) }
 }
 
 export async function updateLeadStatus(formData: FormData) {
-  const id = formData.get('id') as string
-  const dataVisitaRaw = formData.get('dataVisita') as string
-  await prisma.lead.update({
-    where: { id },
-    data: { 
-      status: formData.get('status') as string, 
-      dataVisita: dataVisitaRaw ? new Date(dataVisitaRaw) : null 
-    }
-  })
-  revalidatePath('/leads')
+  try {
+    const id = formData.get('id') as string
+    const dataVisitaRaw = formData.get('dataVisita')
+    
+    await prisma.lead.update({
+      where: { id },
+      data: { 
+        status: formData.get('status') as string, 
+        dataVisita: dataVisitaRaw ? safeDate(dataVisitaRaw) : null 
+      }
+    })
+    revalidatePath('/leads')
+  } catch (e) { console.error(e) }
 }
 
 export async function deleteLead(formData: FormData) {
-  await prisma.lead.delete({ where: { id: formData.get('id') as string } })
-  revalidatePath('/leads'); revalidatePath('/')
+  try {
+    await prisma.lead.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/leads'); revalidatePath('/')
+  } catch (e) { console.error(e) }
 }
 
 export async function createCliente(formData: FormData) {
-  await prisma.cliente.create({ 
-    data: { 
-      nome: formData.get('nome') as string, 
-      telefone: formData.get('telefone') as string, 
-      email: formData.get('email') as string || "" 
-    } 
-  })
-  revalidatePath('/festas/nova')
+  try {
+    await prisma.cliente.create({ 
+      data: { 
+        nome: formData.get('nome') as string, 
+        telefone: formData.get('telefone') as string, 
+        email: formData.get('email') as string || "" 
+      } 
+    })
+    revalidatePath('/festas/nova')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
@@ -121,24 +148,14 @@ export async function createCliente(formData: FormData) {
  * ========================================== */
 
 export async function createFesta(formData: FormData) {
-  // CORREÇÃO: Removemos o retorno de objeto { error } para satisfazer o TypeScript
-  // Agora apenas logamos o erro e retornamos vazio (void) se falhar.
-  
-  const dataRaw = formData.get('dataFesta') as string
   const clienteId = formData.get('clienteId') as string
   const pacoteId = formData.get('pacoteId') as string
+  const dataFesta = safeDate(formData.get('dataFesta'))
 
-  // 1. Validação de Data
-  const dataFesta = dataRaw ? new Date(dataRaw) : null
-  if (!dataFesta || isNaN(dataFesta.getTime())) {
-    console.error("ERRO: Data inválida fornecida para createFesta")
-    return // Retorna void (vazio) para não quebrar o formulário
-  }
-
-  // 2. Validação de IDs
+  // Validação simples: sem cliente ou pacote, não salva
   if (!clienteId || !pacoteId) {
-    console.error("ERRO: Cliente ou Pacote não fornecidos")
-    return // Retorna void
+    console.error("Tentativa de criar festa sem cliente ou pacote")
+    return
   }
 
   try {
@@ -155,25 +172,28 @@ export async function createFesta(formData: FormData) {
     })
     revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
   } catch (error) {
-    console.error("Erro ao criar festa no banco:", error)
-    // Não retornamos { error } aqui para evitar o erro de Build
+    console.error("Erro ao criar festa:", error)
   }
 }
 
 export async function deleteFesta(formData: FormData) {
-  await prisma.festa.delete({ where: { id: formData.get('id') as string } })
-  revalidatePath('/festas'); revalidatePath('/calendario')
+  try {
+    await prisma.festa.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/festas'); revalidatePath('/calendario')
+  } catch (e) { console.error(e) }
 }
 
 export async function createPacote(formData: FormData) {
-  await prisma.pacote.create({ 
-    data: { 
-      nome: formData.get('nome') as string, 
-      precoBase: parseFloat(formData.get('precoBase') as string) || 0, 
-      descricao: "" 
-    } 
-  })
-  revalidatePath('/festas')
+  try {
+    await prisma.pacote.create({ 
+      data: { 
+        nome: formData.get('nome') as string, 
+        precoBase: parseFloat(formData.get('precoBase') as string) || 0, 
+        descricao: "" 
+      } 
+    })
+    revalidatePath('/festas')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
@@ -181,31 +201,37 @@ export async function createPacote(formData: FormData) {
  * ========================================== */
 
 export async function createTarefa(formData: FormData) {
-  await prisma.tarefa.create({
-    data: { 
-      descricao: formData.get('descricao') as string, 
-      equipe: formData.get('equipe') as string, 
-      dataLimite: new Date(formData.get('dataLimite') as string), 
-      status: "PENDENTE" 
-    }
-  })
-  revalidatePath('/tarefas'); revalidatePath('/calendario')
+  try {
+    await prisma.tarefa.create({
+      data: { 
+        descricao: formData.get('descricao') as string, 
+        equipe: formData.get('equipe') as string, 
+        dataLimite: safeDate(formData.get('dataLimite')), 
+        status: "PENDENTE" 
+      }
+    })
+    revalidatePath('/tarefas'); revalidatePath('/calendario')
+  } catch (e) { console.error(e) }
 }
 
 export async function deleteTarefa(formData: FormData) {
-  await prisma.tarefa.delete({ where: { id: formData.get('id') as string } })
-  revalidatePath('/tarefas')
+  try {
+    await prisma.tarefa.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/tarefas')
+  } catch (e) { console.error(e) }
 }
 
 export async function toggleTarefaStatus(formData: FormData) {
-  const id = formData.get('id') as string
-  const tarefa = await prisma.tarefa.findUnique({ where: { id } })
-  if (tarefa) {
-    await prisma.tarefa.update({ 
-      where: { id }, data: { status: tarefa.status === "PENDENTE" ? "CONCLUIDA" : "PENDENTE" } 
-    })
-  }
-  revalidatePath('/tarefas')
+  try {
+    const id = formData.get('id') as string
+    const tarefa = await prisma.tarefa.findUnique({ where: { id } })
+    if (tarefa) {
+      await prisma.tarefa.update({ 
+        where: { id }, data: { status: tarefa.status === "PENDENTE" ? "CONCLUIDA" : "PENDENTE" } 
+      })
+    }
+    revalidatePath('/tarefas')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
@@ -213,134 +239,177 @@ export async function toggleTarefaStatus(formData: FormData) {
  * ========================================== */
 
 export async function createItemEstoque(formData: FormData) {
-  await prisma.itemEstoque.create({
-    data: { 
-      nome: formData.get('nome') as string, 
-      categoria: formData.get('categoria') as string, 
-      quantidade: parseInt(formData.get('quantidade') as string) || 0, 
-      estoqueMinimo: parseInt(formData.get('estoqueMinimo') as string) || 0, 
-      unidade: "UN" 
-    }
-  })
-  revalidatePath('/estoque')
+  try {
+    await prisma.itemEstoque.create({
+      data: { 
+        nome: formData.get('nome') as string, 
+        categoria: formData.get('categoria') as string, 
+        quantidade: parseInt(formData.get('quantidade') as string) || 0, 
+        estoqueMinimo: parseInt(formData.get('estoqueMinimo') as string) || 0, 
+        unidade: "UN" 
+      }
+    })
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 export async function deleteItemEstoque(formData: FormData) {
-  await prisma.itemEstoque.delete({ where: { id: formData.get('id') as string } })
-  revalidatePath('/estoque')
+  try {
+    await prisma.itemEstoque.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 export async function registrarEntrada(formData: FormData) {
-  const id = formData.get('id') as string
-  const valorInput = formData.get('valor')
-  const valor = valorInput ? parseInt(valorInput as string) : 1
-  const item = await prisma.itemEstoque.findUnique({ where: { id } })
-  if (item && valor > 0) {
-    await prisma.itemEstoque.update({ where: { id }, data: { quantidade: item.quantidade + valor } })
-  }
-  revalidatePath('/estoque')
+  try {
+    const id = formData.get('id') as string
+    const valorInput = formData.get('valor')
+    const valor = valorInput ? parseInt(valorInput as string) : 1
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item && valor > 0) {
+      await prisma.itemEstoque.update({ where: { id }, data: { quantidade: item.quantidade + valor } })
+    }
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 export async function registrarSaida(formData: FormData) {
-  const id = formData.get('id') as string
-  const valorInput = formData.get('valor')
-  const valor = valorInput ? parseInt(valorInput as string) : 1
-  const item = await prisma.itemEstoque.findUnique({ where: { id } })
-  if (item && valor > 0) {
-    await prisma.itemEstoque.update({ where: { id }, data: { quantidade: Math.max(0, item.quantidade - valor) } })
-  }
-  revalidatePath('/estoque')
+  try {
+    const id = formData.get('id') as string
+    const valorInput = formData.get('valor')
+    const valor = valorInput ? parseInt(valorInput as string) : 1
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item && valor > 0) {
+      await prisma.itemEstoque.update({ where: { id }, data: { quantidade: Math.max(0, item.quantidade - valor) } })
+    }
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 export async function movimentarEstoque(formData: FormData) {
-  const id = formData.get('id') as string
-  const tipo = formData.get('tipo') as string
-  const valor = parseInt(formData.get('valor') as string) || 0
-  const item = await prisma.itemEstoque.findUnique({ where: { id } })
-  if (item) {
-    let novaQtd = item.quantidade
-    if (tipo === 'ENTRADA') novaQtd = item.quantidade + valor
-    else if (tipo === 'SAIDA') novaQtd = Math.max(0, item.quantidade - valor)
-    await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
-  }
-  revalidatePath('/estoque')
+  try {
+    const id = formData.get('id') as string
+    const tipo = formData.get('tipo') as string
+    const valor = parseInt(formData.get('valor') as string) || 0
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item) {
+      let novaQtd = item.quantidade
+      if (tipo === 'ENTRADA') novaQtd = item.quantidade + valor
+      else if (tipo === 'SAIDA') novaQtd = Math.max(0, item.quantidade - valor)
+      await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
+    }
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 export async function ajustarQuantidade(formData: FormData) {
-  const id = formData.get('id') as string
-  const operacao = formData.get('operacao') as string
-  const item = await prisma.itemEstoque.findUnique({ where: { id } })
-  if (item) {
-    const novaQtd = operacao === "SOMA" ? item.quantidade + 1 : Math.max(0, item.quantidade - 1)
-    await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
-  }
-  revalidatePath('/estoque')
+  try {
+    const id = formData.get('id') as string
+    const operacao = formData.get('operacao') as string
+    const item = await prisma.itemEstoque.findUnique({ where: { id } })
+    if (item) {
+      const novaQtd = operacao === "SOMA" ? item.quantidade + 1 : Math.max(0, item.quantidade - 1)
+      await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
+    }
+    revalidatePath('/estoque')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
- * 6. FINANCEIRO
+ * 6. FINANCEIRO (PROTEGIDO CONTRA ERROS)
  * ========================================== */
 
 export async function confirmarPagamento(formData: FormData) {
-  await prisma.pagamento.update({ where: { id: formData.get('id') as string }, data: { status: "PAGO" } })
-  revalidatePath('/festas'); revalidatePath('/financeiro'); revalidatePath('/')
+  try {
+    await prisma.pagamento.update({ 
+      where: { id: formData.get('id') as string }, 
+      data: { status: "PAGO" } 
+    })
+    revalidatePath('/festas'); revalidatePath('/financeiro'); revalidatePath('/')
+  } catch (e) { console.error("Erro confirmar pagto", e) }
 }
 
 export async function updatePagamento(formData: FormData) {
-  await prisma.pagamento.update({ 
-    where: { id: formData.get('id') as string }, 
-    data: { valor: parseFloat(formData.get('valor') as string), dataVencimento: new Date(formData.get('dataVencimento') as string) } 
-  })
-  revalidatePath('/festas')
+  try {
+    // Uso safeDate para evitar Invalid Date se o campo vier vazio
+    await prisma.pagamento.update({ 
+      where: { id: formData.get('id') as string }, 
+      data: { 
+        valor: parseFloat(formData.get('valor') as string) || 0, 
+        dataVencimento: safeDate(formData.get('dataVencimento'))
+      } 
+    })
+    revalidatePath('/festas')
+  } catch (e) { console.error("Erro update pagto", e) }
 }
 
 export async function gerarFinanceiroHibrido(formData: FormData) {
-  const festaId = formData.get('festaId') as string
-  const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
-  const valorEntrada = parseFloat(formData.get('valorEntrada') as string) || 0
-  
-  await prisma.pagamento.deleteMany({ where: { festaId } })
-  
-  await prisma.pagamento.create({ 
-      data: { festaId, valor: valorEntrada, status: "PAGO", parcela: 0, dataVencimento: new Date(), metodo: "PIX" } 
-  })
-  
-  if (valorTotal > valorEntrada) {
-      await prisma.pagamento.create({
-          data: { 
-              festaId, 
-              valor: valorTotal - valorEntrada, 
-              status: "PENDENTE", 
-              parcela: 1, 
-              dataVencimento: new Date(formData.get('dataInicio') as string || new Date()), 
-              metodo: "PIX" 
-          }
-      })
-  }
-  revalidatePath('/festas')
+  try {
+    const festaId = formData.get('festaId') as string
+    const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
+    const valorEntrada = parseFloat(formData.get('valorEntrada') as string) || 0
+    
+    // Deleta anteriores para refazer a lógica
+    await prisma.pagamento.deleteMany({ where: { festaId } })
+    
+    // Parcela de entrada (PIX) - Data Hoje
+    await prisma.pagamento.create({ 
+        data: { 
+          festaId, 
+          valor: valorEntrada, 
+          status: "PAGO", 
+          parcela: 0, 
+          dataVencimento: new Date(), 
+          metodo: "PIX" 
+        } 
+    })
+    
+    // Parcela restante (se houver)
+    if (valorTotal > valorEntrada) {
+        await prisma.pagamento.create({
+            data: { 
+                festaId, 
+                valor: valorTotal - valorEntrada, 
+                status: "PENDENTE", 
+                parcela: 1, 
+                // Se não vier data, assume hoje para não travar
+                dataVencimento: safeDate(formData.get('dataInicio')), 
+                metodo: "PIX" 
+            }
+        })
+    }
+    revalidatePath('/festas')
+  } catch (e) { console.error("Erro gerar financeiro", e) }
 }
 
 export async function createDespesa(formData: FormData) {
-  await prisma.despesa.create({
-    data: {
-      descricao: formData.get('descricao') as string,
-      valor: parseFloat(formData.get('valor') as string) || 0,
-      categoria: formData.get('categoria') as string,
-      dataVencimento: new Date(formData.get('dataVencimento') as string),
-      status: 'PENDENTE'
-    }
-  })
-  revalidatePath('/financeiro'); revalidatePath('/')
+  try {
+    await prisma.despesa.create({
+      data: {
+        descricao: formData.get('descricao') as string || "Despesa sem nome",
+        valor: parseFloat(formData.get('valor') as string) || 0,
+        categoria: formData.get('categoria') as string || "Geral",
+        // Evita erro de data inválida
+        dataVencimento: safeDate(formData.get('dataVencimento')),
+        status: 'PENDENTE'
+      }
+    })
+    revalidatePath('/financeiro'); revalidatePath('/')
+  } catch (e) { console.error("Erro criar despesa", e) }
 }
 
 export async function pagarDespesa(formData: FormData) {
-  await prisma.despesa.update({ where: { id: formData.get('id') as string }, data: { status: 'PAGO' } })
-  revalidatePath('/financeiro'); revalidatePath('/')
+  try {
+    await prisma.despesa.update({ where: { id: formData.get('id') as string }, data: { status: 'PAGO' } })
+    revalidatePath('/financeiro'); revalidatePath('/')
+  } catch (e) { console.error(e) }
 }
 
 export async function deleteDespesa(formData: FormData) {
-  await prisma.despesa.delete({ where: { id: formData.get('id') as string } })
-  revalidatePath('/financeiro'); revalidatePath('/')
+  try {
+    await prisma.despesa.delete({ where: { id: formData.get('id') as string } })
+    revalidatePath('/financeiro'); revalidatePath('/')
+  } catch (e) { console.error(e) }
 }
 
 /** * ==========================================
@@ -348,29 +417,33 @@ export async function deleteDespesa(formData: FormData) {
  * ========================================== */
 
 export async function salvarSimulacao(festaId: string, dados: any) {
-  await prisma.simulacao.create({
-    data: {
-      festaId, 
-      receitaPrevista: dados.receita, 
-      custoTotal: dados.custos, 
-      lucroEstimado: dados.lucro, 
-      margem: dados.margem, 
-      detalhes: JSON.stringify(dados.detalhes)
-    }
-  })
-  revalidatePath('/relatorios')
+  try {
+    await prisma.simulacao.create({
+      data: {
+        festaId, 
+        receitaPrevista: dados.receita, 
+        custoTotal: dados.custos, 
+        lucroEstimado: dados.lucro, 
+        margem: dados.margem, 
+        detalhes: JSON.stringify(dados.detalhes)
+      }
+    })
+    revalidatePath('/relatorios')
+  } catch (e) { console.error(e) }
 }
 
 export async function getFestaParaConvite(id: string) {
-  return await prisma.festa.findUnique({ where: { id }, include: { cliente: true } })
+  try {
+    return await prisma.festa.findUnique({ where: { id }, include: { cliente: true } })
+  } catch (e) { return null }
 }
 
 export async function enviarConviteWpp(festaId: string, base64: string) {
-  const festa = await prisma.festa.findUnique({ where: { id: festaId }, include: { cliente: true } })
-  
-  if (!festa?.cliente.telefone) return { error: "Telefone ausente" }
-  
   try {
+    const festa = await prisma.festa.findUnique({ where: { id: festaId }, include: { cliente: true } })
+    
+    if (!festa?.cliente.telefone) return { error: "Telefone ausente" }
+    
     const res = await fetch(`${process.env.EVOLUTION_API_URL}/message/sendMedia/BuffetPro`, {
       method: 'POST',
       headers: { 
