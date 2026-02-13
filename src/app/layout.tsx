@@ -32,29 +32,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="dark">
-      <body className={`${inter.className} bg-slate-950 text-slate-100 min-h-screen flex overflow-x-hidden`}>
+    <html lang="pt-BR">
+      <body className={`${inter.className} bg-slate-50 text-slate-900 min-h-screen flex`}>
         
-        {/* --- SIDEBAR FIXA (w-64) --- */}
+        {/* --- SIDEBAR FIXA (Menu Lateral) --- */}
         <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-900 border-r border-slate-800 flex flex-col z-50 shadow-2xl">
           
           {/* CABEÇALHO / LOGO */}
           <div className="p-6 border-b border-slate-800/50 bg-slate-900/40 backdrop-blur-md">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 ring-1 ring-white/10">
-                <span className="font-black text-white text-lg italic">GM</span>
+                <span className="font-black text-white text-lg italic uppercase">GM</span>
               </div>
               <div>
                 <h1 className="font-bold text-white tracking-tight leading-tight">BUFFET GM</h1>
-                <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">Enterprise</p>
+                <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest text-xs">Sistema ERP</p>
               </div>
             </div>
           </div>
 
-          {/* NAVEGAÇÃO PRINCIPAL */}
+          {/* NAVEGAÇÃO PRINCIPAL COM SCROLL SEGURO */}
           <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
             
-            {/* GRUPO COMERCIAL */}
             <div className="mb-6">
               <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Comercial (CRM)</p>
               <MenuLink href="/" icon={<LayoutDashboard size={18} />} label="Dashboard" />
@@ -62,24 +61,20 @@ export default function RootLayout({
               <MenuLink href="/clientes" icon={<Users size={18} />} label="Meus Clientes" />
             </div>
 
-            {/* GRUPO OPERACIONAL */}
             <div className="mb-6">
               <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Operacional</p>
               <MenuLink href="/festas" icon={<PartyPopper size={18} />} label="Festas & Eventos" />
               <MenuLink href="/calendario" icon={<CalendarCheck size={18} />} label="Agenda Geral" />
               <MenuLink href="/tarefas" icon={<ClipboardList size={18} />} label="Checklist Tarefas" />
               <MenuLink href="/estoque" icon={<Package size={18} />} label="Estoque Central" />
-              <MenuLink href="/fornecedores" icon={<Truck size={18} />} label="Fornecedores" />
             </div>
 
-            {/* GRUPO FINANCEIRO */}
             <div className="mb-6">
               <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Financeiro</p>
               <MenuLink href="/financeiro" icon={<DollarSign size={18} />} label="Fluxo de Caixa" />
-              <MenuLink href="/relatorios" icon={<ClipboardList size={18} />} label="Relatórios Lucro" />
+              <MenuLink href="/relatorios" icon={<ClipboardList size={18} />} label="Relatórios" />
             </div>
 
-            {/* GRUPO FERRAMENTAS */}
             <div className="mb-4">
               <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Apoio</p>
               <Link href="/simulador" className="flex items-center justify-between px-4 py-3 text-emerald-400 bg-emerald-500/5 border border-emerald-500/20 rounded-xl transition-all hover:bg-emerald-500/10 group mb-1">
@@ -94,7 +89,7 @@ export default function RootLayout({
 
           </nav>
 
-          {/* RODAPÉ / SAIR */}
+          {/* RODAPÉ / ENCERRAR SESSÃO */}
           <div className="p-4 border-t border-slate-800 bg-slate-950/40">
             <form action={logout}>
               <button className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-white hover:bg-red-500/20 p-3 rounded-xl transition-all font-black text-xs group ring-1 ring-red-500/20">
@@ -105,9 +100,8 @@ export default function RootLayout({
           </div>
         </aside>
 
-        {/* --- CONTAINER PRINCIPAL --- */}
-        {/* ml-64 empurra o conteúdo para não ficar debaixo do menu */}
-        <main className="flex-1 ml-64 min-h-screen relative flex flex-col">
+        {/* --- ÁREA DE CONTEÚDO (Garante visibilidade dos inputs) --- */}
+        <main className="flex-1 ml-64 min-h-screen bg-slate-50 relative flex flex-col">
           <div className="p-8 max-w-[1600px] w-full mx-auto">
             {children}
           </div>
@@ -118,7 +112,6 @@ export default function RootLayout({
   );
 }
 
-// Sub-componente para links padronizados
 function MenuLink({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
   return (
     <Link href={href} className="flex items-center justify-between gap-3 px-4 py-2.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-all group">

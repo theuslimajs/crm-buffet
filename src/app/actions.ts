@@ -6,7 +6,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 /**
- * AJUDANTE: Garante datas válidas para não quebrar o banco
+ * AJUDANTE: Garante datas válidas para não quebrar o banco de dados
  */
 function safeDate(dateStr: any): Date {
   if (!dateStr) return new Date()
@@ -15,7 +15,7 @@ function safeDate(dateStr: any): Date {
 }
 
 /** * ==========================================
- * 1. AUTENTICAÇÃO E USUÁRIOS (PERMISSÕES)
+ * 1. AUTENTICAÇÃO E PERMISSÕES
  * ========================================== */
 
 export async function login(prevState: any, formData: FormData) {
@@ -77,7 +77,7 @@ export async function updatePermissoes(formData: FormData) {
 }
 
 /** * ==========================================
- * 2. COMERCIAL (LEADS & CLIENTES)
+ * 2. CRM E CLIENTES (LEADS)
  * ========================================== */
 
 export async function createLead(formData: FormData) {
@@ -130,7 +130,7 @@ export async function createCliente(formData: FormData) {
 }
 
 /** * ==========================================
- * 3. OPERACIONAL (FESTAS, AGENDA & PACOTES)
+ * 3. OPERACIONAL (FESTAS, AGENDA E PACOTES)
  * ========================================== */
 
 export async function createFesta(formData: FormData) {
@@ -145,8 +145,7 @@ export async function createFesta(formData: FormData) {
     const festa = await prisma.festa.create({
       data: {
         nomeAniversariante: formData.get('nomeAniversariante') as string,
-        dataFesta: dataFesta,
-        valorTotal: valorTotal,
+        dataFesta, valorTotal,
         qtdPessoas: parseInt(formData.get('qtdPessoas') as string) || 0,
         status: 'AGENDADO',
         cliente: { connect: { id: clienteId } },
@@ -154,19 +153,14 @@ export async function createFesta(formData: FormData) {
       }
     })
 
-    if (valorTotal > 0) {
-      await prisma.pagamento.create({
-        data: { 
-          festaId: festa.id, 
-          valor: valorTotal, 
-          status: "PENDENTE", 
-          dataVencimento: dataFesta, 
-          parcela: 1, 
-          metodo: "A DEFINIR" 
-        }
-      })
-    }
-    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/'); revalidatePath('/financeiro')
+    // Cria pagamento automático para Dashboard
+    await prisma.pagamento.create({
+      data: { 
+        festaId: festa.id, valor: valorTotal, status: "PENDENTE", 
+        dataVencimento: dataFesta, parcela: 1, metodo: "A DEFINIR" 
+      }
+    })
+    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
   } catch (e) { console.error(e) }
 }
 
@@ -175,21 +169,7 @@ export async function deleteFesta(formData: FormData) {
     const id = formData.get('id') as string
     await prisma.pagamento.deleteMany({ where: { festaId: id } })
     await prisma.festa.delete({ where: { id } })
-    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/'); revalidatePath('/financeiro')
-  } catch (e) { console.error(e) }
-}
-
-export async function updatePagamento(formData: FormData) {
-  try {
-    const id = formData.get('id') as string
-    await prisma.pagamento.update({
-      where: { id },
-      data: { 
-        valor: parseFloat(formData.get('valor') as string) || 0,
-        dataVencimento: safeDate(formData.get('dataVencimento'))
-      }
-    })
-    revalidatePath('/festas'); revalidatePath('/financeiro')
+    revalidatePath('/festas'); revalidatePath('/calendario'); revalidatePath('/')
   } catch (e) { console.error(e) }
 }
 
@@ -245,7 +225,7 @@ export async function toggleTarefaStatus(formData: FormData) {
 }
 
 /** * ==========================================
- * 5. ESTOQUE (MOVIMENTAÇÃO COMPLETA)
+ * 5. ESTOQUE (CONTROLE TOTAL)
  * ========================================== */
 
 export async function createItemEstoque(formData: FormData) {
@@ -274,11 +254,7 @@ export async function registrarEntrada(formData: FormData) {
   try {
     const id = formData.get('id') as string
     const item = await prisma.itemEstoque.findUnique({ where: { id } })
-    if (item) {
-      await prisma.itemEstoque.update({ 
-        where: { id }, data: { quantidade: item.quantidade + 1 } 
-      })
-    }
+    if (item) await prisma.itemEstoque.update({ where: { id }, data: { quantidade: item.quantidade + 1 } })
     revalidatePath('/estoque')
   } catch (e) { console.error(e) }
 }
@@ -287,11 +263,7 @@ export async function registrarSaida(formData: FormData) {
   try {
     const id = formData.get('id') as string
     const item = await prisma.itemEstoque.findUnique({ where: { id } })
-    if (item) {
-      await prisma.itemEstoque.update({ 
-        where: { id }, data: { quantidade: Math.max(0, item.quantidade - 1) } 
-      })
-    }
+    if (item) await prisma.itemEstoque.update({ where: { id }, data: { quantidade: Math.max(0, item.quantidade - 1) } })
     revalidatePath('/estoque')
   } catch (e) { console.error(e) }
 }
@@ -303,23 +275,7 @@ export async function movimentarEstoque(formData: FormData) {
     const valor = parseInt(formData.get('valor') as string) || 1
     const item = await prisma.itemEstoque.findUnique({ where: { id } })
     if (item) {
-      let novaQtd = item.quantidade
-      if (tipo === 'ENTRADA') novaQtd += valor
-      else if (tipo === 'SAIDA') novaQtd = Math.max(0, item.quantidade - valor)
-      
-      await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
-    }
-    revalidatePath('/estoque')
-  } catch (e) { console.error(e) }
-}
-
-export async function ajustarQuantidade(formData: FormData) {
-  try {
-    const id = formData.get('id') as string
-    const operacao = formData.get('operacao') as string
-    const item = await prisma.itemEstoque.findUnique({ where: { id } })
-    if (item) {
-      const novaQtd = operacao === "SOMA" ? item.quantidade + 1 : Math.max(0, item.quantidade - 1)
+      let novaQtd = tipo === 'ENTRADA' ? item.quantidade + valor : Math.max(0, item.quantidade - valor)
       await prisma.itemEstoque.update({ where: { id }, data: { quantidade: novaQtd } })
     }
     revalidatePath('/estoque')
@@ -327,7 +283,7 @@ export async function ajustarQuantidade(formData: FormData) {
 }
 
 /** * ==========================================
- * 6. FINANCEIRO (HÍBRIDO, FLUXO DE CAIXA & DESPESAS)
+ * 6. FINANCEIRO (HÍBRIDO E FLUXO DE CAIXA)
  * ========================================== */
 
 export async function gerarFinanceiroHibrido(formData: FormData) {
@@ -335,15 +291,10 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
     const festaId = formData.get('festaId') as string
     const valorTotal = parseFloat(formData.get('valorTotal') as string) || 0
     const valorEntrada = parseFloat(formData.get('valorEntrada') as string) || 0
-    
     await prisma.pagamento.deleteMany({ where: { festaId } })
-    
-    // Parcela 1: Entrada (PAGO)
     await prisma.pagamento.create({ 
         data: { festaId, valor: valorEntrada, status: "PAGO", parcela: 0, dataVencimento: new Date(), metodo: "PIX" } 
     })
-    
-    // Parcela 2: Restante (PENDENTE)
     if (valorTotal > valorEntrada) {
         await prisma.pagamento.create({
             data: { 
@@ -352,7 +303,25 @@ export async function gerarFinanceiroHibrido(formData: FormData) {
             }
         })
     }
-    revalidatePath('/'); revalidatePath('/financeiro'); revalidatePath('/festas')
+    revalidatePath('/'); revalidatePath('/financeiro')
+  } catch (e) { console.error(e) }
+}
+
+export async function updatePagamento(formData: FormData) {
+  try {
+    const id = formData.get('id') as string
+    await prisma.pagamento.update({
+      where: { id },
+      data: { valor: parseFloat(formData.get('valor') as string) || 0, dataVencimento: safeDate(formData.get('dataVencimento')) }
+    })
+    revalidatePath('/festas'); revalidatePath('/financeiro')
+  } catch (e) { console.error(e) }
+}
+
+export async function confirmarPagamento(formData: FormData) {
+  try {
+    await prisma.pagamento.update({ where: { id: formData.get('id') as string }, data: { status: "PAGO" } })
+    revalidatePath('/'); revalidatePath('/financeiro')
   } catch (e) { console.error(e) }
 }
 
@@ -360,23 +329,14 @@ export async function createDespesa(formData: FormData) {
   try {
     await prisma.despesa.create({
       data: { 
-        descricao: formData.get('descricao') as string || "Despesa sem nome", 
+        descricao: formData.get('descricao') as string, 
         valor: parseFloat(formData.get('valor') as string) || 0, 
-        categoria: formData.get('categoria') as string || "Geral", 
+        categoria: formData.get('categoria') as string, 
         dataVencimento: safeDate(formData.get('dataVencimento')), 
         status: 'PENDENTE' 
       }
     })
-    revalidatePath('/'); revalidatePath('/financeiro')
-  } catch (e) { console.error(e) }
-}
-
-export async function confirmarPagamento(formData: FormData) {
-  try {
-    await prisma.pagamento.update({ 
-      where: { id: formData.get('id') as string }, data: { status: "PAGO" } 
-    })
-    revalidatePath('/'); revalidatePath('/financeiro'); revalidatePath('/festas')
+    revalidatePath('/financeiro'); revalidatePath('/')
   } catch (e) { console.error(e) }
 }
 
@@ -395,18 +355,17 @@ export async function deleteDespesa(formData: FormData) {
 }
 
 /** * ==========================================
- * 7. SIMULADOR & WHATSAPP
+ * 7. SIMULADOR E CONVITES (WHATSAPP)
  * ========================================== */
 
 export async function salvarSimulacao(formData: FormData) {
   try {
     const receita = parseFloat(formData.get('receita') as string) || 0
     const custo = parseFloat(formData.get('custo') as string) || 0
-    const lucro = receita - custo
     await prisma.simulacao.create({
       data: { 
-        receitaPrevista: receita, custoTotal: custo, lucroEstimado: lucro, 
-        margem: receita > 0 ? (lucro / receita) * 100 : 0, detalhes: formData.get('detalhes') as string || "{}"
+        receitaPrevista: receita, custoTotal: custo, lucroEstimado: receita - custo, 
+        margem: receita > 0 ? ((receita - custo) / receita) * 100 : 0, detalhes: "{}"
       }
     })
     revalidatePath('/relatorios')
@@ -422,21 +381,16 @@ export async function getFestaParaConvite(id: string) {
 export async function enviarConviteWpp(festaId: string, base64: string) {
   try {
     const festa = await prisma.festa.findUnique({ where: { id: festaId }, include: { cliente: true } })
-    if (!festa?.cliente.telefone) return { error: "Telefone ausente" }
+    if (!festa?.cliente.telefone) return { error: "Sem telefone" }
     
     await fetch(`${process.env.EVOLUTION_API_URL}/message/sendMedia/BuffetPro`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 'apikey': process.env.EVOLUTION_API_KEY! 
-      },
+      headers: { 'Content-Type': 'application/json', 'apikey': process.env.EVOLUTION_API_KEY! },
       body: JSON.stringify({ 
         number: `55${festa.cliente.telefone.replace(/\D/g, '')}`, 
-        mediaMessage: { 
-          mediatype: "image", caption: `Convite de ${festa.nomeAniversariante}`, 
-          media: base64.split(',')[1] 
-        } 
+        mediaMessage: { mediatype: "image", caption: `Convite GM: ${festa.nomeAniversariante}`, media: base64.split(',')[1] } 
       })
     })
     return { success: true }
-  } catch { return { error: "Erro na API de WhatsApp" } }
+  } catch (e) { return { error: "Erro API WhatsApp" } }
 }
