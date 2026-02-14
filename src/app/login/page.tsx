@@ -1,11 +1,17 @@
-'use client' //
+"use client";
 
-import { useActionState } from 'react'
-import { login } from '../actions' // Verifique se o caminho está correto para o seu actions.ts
+import { useActionState } from "react";
+import { login } from "../actions";
+
+type LoginState = {
+  error?: string;
+};
+
+const initialState: LoginState = {};
 
 export default function LoginPage() {
-  // O hook useActionState gerencia o estado do formulário, erros e carregamento
-  const [state, formAction, isPending] = useActionState(login, null)
+  // login (server action) idealmente deve ter assinatura: (prevState, formData) => newState
+  const [state, formAction, isPending] = useActionState<LoginState, FormData>(login, initialState);
 
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -16,18 +22,18 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-          {/* Usamos formAction em vez de login diretamente para o React gerir o estado */}
           <form action={formAction} className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
                 E-mail
               </label>
-              <input 
-                name="email" // Deve ser exatamente "email"
-                type="email" 
-                placeholder="matheus.manaira@hotmail.com" 
-                required 
-                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition" 
+              <input
+                name="email"
+                type="email"
+                placeholder="matheus.manaira@hotmail.com"
+                required
+                autoComplete="email"
+                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition"
               />
             </div>
 
@@ -35,34 +41,32 @@ export default function LoginPage() {
               <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
                 Palavra-passe
               </label>
-              <input 
-                name="senha" // MUDANÇA: Alterado para "senha" para bater com o actions.ts
-                type="password" 
-                placeholder="••••••••" 
-                required 
-                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition" 
+              <input
+                name="senha"
+                type="password"
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition"
               />
             </div>
 
-            {/* Exibe mensagem de erro caso as credenciais falhem */}
             {state?.error && (
               <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl">
-                <p className="text-red-500 text-xs font-bold text-center">
-                  {state.error}
-                </p>
+                <p className="text-red-500 text-xs font-bold text-center">{state.error}</p>
               </div>
             )}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isPending}
               className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 text-slate-950 font-black p-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
             >
-              {isPending ? 'A ENTRAR...' : 'ACEDER AO SISTEMA'}
+              {isPending ? "A ENTRAR..." : "ACEDER AO SISTEMA"}
             </button>
           </form>
         </div>
       </div>
     </main>
-  )
+  );
 }

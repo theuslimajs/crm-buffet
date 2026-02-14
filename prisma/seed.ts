@@ -3,15 +3,23 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-  // Criar o teu utilizador de Administrador
   const admin = await prisma.usuario.upsert({
     where: { email: 'matheus.manaira@hotmail.com' },
-    update: {},
+    update: {
+      // se quiser atualizar permissões caso já exista, descomente:
+      // podeVerLeads: true,
+      // podeVerCalendario: true,
+      // podeVerFestas: true,
+      // podeVerTarefas: true,
+      // podeVerEstoque: true,
+      // podeVerFinanceiro: true,
+      // podeVerRelatorios: true,
+    },
     create: {
       nome: 'Matheus Henrique de Lima',
       email: 'matheus.manaira@hotmail.com',
-      senha: 'admin123', // Podes mudar esta senha depois
-      cargo: 'DONO',
+      senha: 'admin123',
+      cargo: 'DONO', // se cargo for enum e der erro TS, use CargoUsuario.DONO
       podeVerLeads: true,
       podeVerCalendario: true,
       podeVerFestas: true,
@@ -22,16 +30,14 @@ async function main() {
     },
   })
 
-  console.log({ admin })
-  console.log('Utilizador administrador criado com sucesso!')
+  console.log('✅ Admin pronto:', admin.email)
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
+  .catch((e) => {
+    console.error('❌ Seed falhou:', e)
+    process.exitCode = 1
   })
-  .catch(async (e) => {
-    console.error(e)
+  .finally(async () => {
     await prisma.$disconnect()
-    process.exit(1)
   })

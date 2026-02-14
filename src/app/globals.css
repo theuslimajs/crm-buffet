@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+/* @import "shadcn/tailwind.css"; */ /* Só deixe se esse arquivo existir */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -125,10 +125,8 @@
   }
 }
 
-/* --- UTILITÁRIOS CUSTOMIZADOS --- */
-
+/* UTILITÁRIOS */
 @layer utilities {
-  /* Scrollbar discreta para o Menu Lateral */
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
   }
@@ -136,27 +134,24 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-800 rounded-full;
+    background: rgb(30 41 59); /* slate-800 */
+    border-radius: 9999px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-emerald-500/50;
+    background: rgba(16, 185, 129, 0.5); /* emerald-500/50 */
   }
-  
-  /* Esconder scrollbar se necessário */
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 }
 
-/* --- CONFIGURAÇÃO DE IMPRESSÃO (RELATÓRIOS E CONTRATOS) --- */
-
+/* IMPRESSÃO */
 @media print {
-  /* Remove elementos desnecessários na folha */
   aside, button, input, select, .no-print, nav, form {
     display: none !important;
   }
 
-  /* Reseta layout para o papel */
   body, main {
     background-color: white !important;
     color: black !important;
@@ -164,10 +159,9 @@
     margin: 0 !important;
     width: 100% !important;
     position: static !important;
-    margin-left: 0 !important; /* Remove o espaço da sidebar */
+    margin-left: 0 !important;
   }
 
-  /* Garante que os cards fiquem visíveis mas sem fundos escuros */
   .bg-slate-900, .bg-slate-950, .bg-slate-900\/50 {
     background-color: white !important;
     color: black !important;
@@ -175,12 +169,10 @@
     box-shadow: none !important;
   }
 
-  /* Força cores de texto para preto */
   h1, h2, h3, p, span, div {
     color: black !important;
   }
 
-  /* Ajusta tabelas para impressão */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
@@ -191,7 +183,6 @@
     color: black !important;
   }
 
-  /* Força a quebra de página se necessário */
   .page-break {
     page-break-before: always;
   }
