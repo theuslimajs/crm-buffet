@@ -1,284 +1,178 @@
+// src/app/festas/page.tsx
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import {
-  createFesta,
-  createPacote,
-  gerarFinanceiroHibrido,
-  confirmarPagamento,
-  deleteFesta,
-  updatePagamento,
-} from "../actions";
-import {
-  CreditCard,
-  DollarSign,
-  Calendar,
-  CheckCircle2,
-  PartyPopper,
-  PackagePlus,
-  Trash2,
-  Save,
-} from "lucide-react";
+import { createFesta, createPacote, deleteFesta, gerarFinanceiroHibrido } from "../actions";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export default async function FestasPage({ searchParams }: { searchParams?: { [key: string]: string | string[] | undefined } }) {
+  const clienteFiltro = typeof searchParams?.n === 'string' ? searchParams?.n : '';
 
-export default async function FestasPage() {
-  const clientes = await prisma.cliente.findMany({ orderBy: { nome: "asc" } });
-  const pacotes = await prisma.pacote.findMany({ orderBy: { nome: "asc" } });
-
-  const festas = await prisma.festa.findMany({
-    include: { cliente: true, pacote: true, pagamentos: true },
-    orderBy: { dataFesta: "asc" },
-  });
+  const [festas, clientes, pacotes] = await Promise.all([
+    prisma.festa.findMany({
+      where: clienteFiltro ? { clienteId: clienteFiltro } : undefined,
+      orderBy: { dataFesta: "asc" },
+      include: {
+        cliente: true,
+        pacote: true,
+        pagamentos: true,
+      },
+    }),
+    prisma.cliente.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.pacote.findMany({ orderBy: { nome: "asc" } }),
+  ]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-10 pb-20">
-      <header>
-        <h1 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">
-          Agenda & Fluxo de Caixa
-        </h1>
-        <p className="text-slate-400 font-medium">Controle total de recebíveis e eventos.</p>
+    <div className="space-y-8">
+      <header className="flex items-start justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black">Festas & Eventos</h1>
+          <p className="text-slate-500">Cadastre festas, pacotes e pagamentos</p>
+        </div>
+        <Link
+          href="/festas/nova"
+          className="bg-emerald-600 text-white font-black rounded-xl px-5 py-3 uppercase text-xs tracking-widest hover:bg-emerald-700 transition"
+        >
+          Nova festa (assistida)
+        </Link>
       </header>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {/* NOVO PACOTE */}
-        <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-          <h2 className="font-black text-slate-800 mb-6 flex items-center gap-2 text-orange-500">
-            <PackagePlus /> NOVO PACOTE
-          </h2>
-
-          <form action={createPacote} className="space-y-4">
-            <input
-              name="nome"
-              placeholder="Ex: Festa Master"
-              required
-              className="w-full border p-3 rounded-xl text-sm"
-            />
-            <input
-              name="descricao"
-              placeholder="Descrição"
-              required
-              className="w-full border p-3 rounded-xl text-sm"
-            />
-            <input
-              name="precoBase"
-              type="number"
-              step="0.01"
-              min={0}
-              placeholder="R$ Preço"
-              required
-              className="w-full border p-3 rounded-xl text-sm"
-            />
-            <button className="w-full bg-orange-500 text-white py-3 rounded-xl font-black text-xs hover:bg-orange-600 transition">
-              CRIAR PACOTE
-            </button>
-          </form>
-        </section>
-
-        {/* NOVA FESTA */}
-        <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-          <h2 className="font-black text-slate-800 mb-6 flex items-center gap-2 text-purple-500">
-            <PartyPopper /> AGENDAR FESTA
-          </h2>
-
-          <form action={createFesta} className="space-y-4">
-            <select name="clienteId" required className="w-full border p-3 rounded-xl text-sm bg-slate-50">
-              <option value="">Selecione o Cliente...</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-
-            <select name="pacoteId" required className="w-full border p-3 rounded-xl text-sm bg-slate-50">
-              <option value="">Selecione o Pacote...</option>
-              {pacotes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                name="nomeAniversariante"
-                placeholder="Aniversariante"
-                required
-                className="border p-3 rounded-xl text-sm"
-              />
-              <input name="dataFesta" type="date" required className="border p-3 rounded-xl text-sm" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <input name="horaInicio" type="time" required className="border p-3 rounded-xl text-sm" />
-              <input name="horaFim" type="time" required className="border p-3 rounded-xl text-sm" />
-              <input
-                name="valorTotal"
-                type="number"
-                step="0.01"
-                min={0}
-                placeholder="R$ Total"
-                required
-                className="border p-3 rounded-xl text-sm"
-              />
-            </div>
-
-            <button className="w-full bg-purple-600 text-white py-3 rounded-xl font-black text-xs hover:bg-purple-700 transition">
-              CONFIRMAR EVENTO
-            </button>
-          </form>
-        </section>
+      {/* Novo Pacote */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <h2 className="font-black mb-4">Novo Pacote</h2>
+        <form action={createPacote} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <input name="nome" placeholder="Nome do pacote" className="border border-slate-200 rounded-xl px-4 py-3" required />
+          <input name="precoBase" placeholder="Preço base" className="border border-slate-200 rounded-xl px-4 py-3" required />
+          <input name="descricao" placeholder="Descrição (opcional)" className="border border-slate-200 rounded-xl px-4 py-3" />
+          <button className="bg-slate-900 text-white font-black rounded-xl px-4 py-3 uppercase text-xs tracking-widest hover:bg-slate-800 transition">
+            Salvar pacote
+          </button>
+        </form>
       </div>
 
-      <div className="space-y-10">
-        {festas.map((festa) => {
-          const pagamentosOrdenados = [...festa.pagamentos].sort((a, b) => a.parcela - b.parcela);
+      {/* Nova Festa */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <h2 className="font-black mb-4">Nova Festa (rápido)</h2>
 
-          return (
-            <div key={festa.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden">
-              <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
-                <div>
-                  <h3 className="text-2xl font-black uppercase tracking-widest">{festa.nomeAniversariante}</h3>
-                  <p className="text-slate-400 text-xs font-bold mt-1 flex items-center gap-2">
-                    <Calendar size={14} /> {new Date(festa.dataFesta).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
+        <form action={createFesta} className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <input
+            name="nomeAniversariante"
+            placeholder="Aniversariante"
+            className="border border-slate-200 rounded-xl px-4 py-3 md:col-span-2"
+            required
+          />
 
-                <div className="flex items-center gap-8">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-500 uppercase">Contrato</p>
-                    <p className="text-3xl font-black text-purple-400">
-                      R$ {Number(festa.valorTotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
+          <select name="clienteId" className="border border-slate-200 rounded-xl px-4 py-3" required>
+            <option value="">Selecione cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome} ({c.telefone})
+              </option>
+            ))}
+          </select>
 
-                  <form action={deleteFesta}>
-                    <input type="hidden" name="id" value={festa.id} />
-                    <button className="bg-white/10 hover:bg-red-500 p-3 rounded-2xl transition text-white">
-                      <Trash2 size={20} />
-                    </button>
-                  </form>
-                </div>
-              </div>
+          <select name="pacoteId" className="border border-slate-200 rounded-xl px-4 py-3" required>
+            <option value="">Selecione pacote</option>
+            {pacotes.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome} ({p.precoBase.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})
+              </option>
+            ))}
+          </select>
 
-              <div className="p-8 grid lg:grid-cols-3 gap-12">
-                <div className="space-y-6">
-                  <h4 className="font-black text-slate-800 flex items-center gap-2 text-sm">
-                    <CreditCard size={18} /> GERAR PLANO HÍBRIDO
-                  </h4>
+          <input name="dataFesta" type="date" className="border border-slate-200 rounded-xl px-4 py-3" required />
+          <input name="valorTotal" placeholder="Valor total" className="border border-slate-200 rounded-xl px-4 py-3" required />
+          <input name="qtdPessoas" placeholder="Qtd pessoas" className="border border-slate-200 rounded-xl px-4 py-3" />
 
-                  <form action={gerarFinanceiroHibrido} className="space-y-4 bg-slate-50 p-6 rounded-2xl">
-                    <input type="hidden" name="festaId" value={festa.id} />
-                    <input type="hidden" name="valorTotal" value={String(festa.valorTotal)} />
+          <input name="horaInicio" placeholder="Hora início (19:00)" className="border border-slate-200 rounded-xl px-4 py-3" />
+          <input name="horaFim" placeholder="Hora fim (23:00)" className="border border-slate-200 rounded-xl px-4 py-3" />
 
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Entrada</label>
+          <button className="bg-emerald-600 text-white font-black rounded-xl px-4 py-3 uppercase text-xs tracking-widest hover:bg-emerald-700 transition md:col-span-2">
+            Salvar festa
+          </button>
+        </form>
+      </div>
+
+      {/* Lista */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h2 className="font-black">Lista de Festas</h2>
+          <p className="text-xs text-slate-500">Dica: gere o financeiro híbrido para criar entrada + parcelas.</p>
+        </div>
+
+        {festas.length === 0 ? (
+          <p className="text-slate-500">Nenhuma festa cadastrada.</p>
+        ) : (
+          <div className="space-y-4">
+            {festas.map((f) => {
+              const totalPago = f.pagamentos.filter((p) => p.status === "PAGO").reduce((acc, p) => acc + p.valor, 0);
+              const totalPendente = f.pagamentos.filter((p) => p.status === "PENDENTE").reduce((acc, p) => acc + p.valor, 0);
+
+              return (
+                <div key={f.id} className="border border-slate-200 rounded-2xl p-5 bg-slate-50">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="font-black text-lg truncate">{f.nomeAniversariante}</h3>
+                      <p className="text-sm text-slate-600 truncate">
+                        {f.cliente.nome} • {new Date(f.dataFesta).toLocaleDateString("pt-BR")} {f.horaInicio}–{f.horaFim} •{" "}
+                        {f.pacote?.nome ?? "Sem pacote"}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Total:{" "}
+                        <span className="font-black">
+                          {f.valorTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>{" "}
+                        • Pago:{" "}
+                        <span className="font-black text-emerald-700">
+                          {totalPago.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>{" "}
+                        • Pendente:{" "}
+                        <span className="font-black text-amber-700">
+                          {totalPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Financeiro híbrido */}
+                    <form action={gerarFinanceiroHibrido} className="grid grid-cols-2 md:grid-cols-5 gap-2 xl:w-[680px]">
+                      <input type="hidden" name="festaId" value={f.id} />
+                      <input type="hidden" name="valorTotal" value={f.valorTotal} />
+
                       <input
                         name="valorEntrada"
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        required
-                        className="w-full border-none bg-white p-3 rounded-xl text-sm font-bold"
+                        placeholder="Entrada"
+                        className="border border-slate-200 rounded-xl px-3 py-2"
                       />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Parcelas</label>
                       <input
                         name="qtdParcelas"
-                        type="number"
-                        min={0}
-                        required
-                        className="w-full border-none bg-white p-3 rounded-xl text-sm font-bold"
+                        placeholder="Parcelas"
+                        defaultValue="1"
+                        className="border border-slate-200 rounded-xl px-3 py-2"
                       />
-                    </div>
+                      <input
+                        name="dataInicio"
+                        type="date"
+                        defaultValue={new Date(f.dataFesta).toISOString().slice(0, 10)}
+                        className="border border-slate-200 rounded-xl px-3 py-2"
+                      />
 
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase">Início Mensalidades</label>
-                      <input name="dataInicio" type="date" required className="w-full border-none bg-white p-3 rounded-xl text-sm font-bold" />
-                    </div>
+                      <button className="col-span-2 md:col-span-2 bg-slate-900 text-white font-black rounded-xl px-4 py-2 uppercase text-xs tracking-widest hover:bg-slate-800 transition">
+                        Gerar financeiro
+                      </button>
+                    </form>
+                  </div>
 
-                    <button className="w-full bg-purple-600 text-white py-3 rounded-xl font-black text-[10px] hover:bg-purple-700 transition">
-                      SALVAR PLANO
-                    </button>
-                  </form>
-                </div>
-
-                <div className="lg:col-span-2 space-y-6">
-                  <h4 className="font-black text-slate-800 flex items-center gap-2 text-sm">
-                    <DollarSign size={18} /> FLUXO DE CAIXA EDITÁVEL
-                  </h4>
-
-                  <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-4">
-                    {pagamentosOrdenados.map((pag) => (
-                      <div
-                        key={pag.id}
-                        className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition"
-                      >
-                        {pag.status === "PAGO" ? (
-                          <div className="flex flex-1 justify-between items-center px-4">
-                            <span className="text-[10px] font-black text-slate-300">
-                              #{pag.parcela === 0 ? "E" : pag.parcela}
-                            </span>
-                            <span className="font-black text-slate-700">R$ {Number(pag.valor).toFixed(2)}</span>
-                            <span className="text-xs font-bold text-slate-400">
-                              {new Date(pag.dataVencimento).toLocaleDateString("pt-BR")}
-                            </span>
-                            <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[9px] font-black">
-                              PAGO
-                            </span>
-                          </div>
-                        ) : (
-                          <form action={updatePagamento} className="flex flex-1 items-center gap-6">
-                            <input type="hidden" name="id" value={pag.id} />
-                            <span className="text-[10px] font-black text-slate-300">#{pag.parcela}</span>
-
-                            <input
-                              name="valor"
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              defaultValue={Number(pag.valor)}
-                              className="w-28 bg-slate-50 p-2 rounded-lg text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-purple-200"
-                            />
-
-                            <input
-                              name="dataVencimento"
-                              type="date"
-                              defaultValue={new Date(pag.dataVencimento).toISOString().split("T")[0]}
-                              className="text-xs font-bold text-slate-500 bg-transparent outline-none"
-                            />
-
-                            <button className="text-slate-300 hover:text-blue-500 transition" title="Salvar">
-                              <Save size={18} />
-                            </button>
-
-                            <div className="flex items-center gap-4 border-l pl-6">
-                              <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-[9px] font-black uppercase">
-                                PENDENTE
-                              </span>
-                            </div>
-                          </form>
-                        )}
-
-                        {pag.status === "PENDENTE" && (
-                          <form action={confirmarPagamento} className="flex items-center gap-2 ml-4">
-                            <input type="hidden" name="id" value={pag.id} />
-                            <input type="hidden" name="metodo" value="PIX" />
-                            <button className="text-emerald-500 hover:scale-110 transition" title="Confirmar pagamento">
-                              <CheckCircle2 size={24} />
-                            </button>
-                          </form>
-                        )}
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-end mt-4 gap-2">
+                    <form action={deleteFesta}>
+                      <input type="hidden" name="id" value={f.id} />
+                      <button className="bg-red-600 text-white font-black px-4 py-2 rounded-xl uppercase text-xs tracking-widest hover:bg-red-700 transition">
+                        Excluir
+                      </button>
+                    </form>
                   </div>
                 </div>
-              </div>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

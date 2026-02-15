@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,10 +8,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//////////////////////////////////////////////////////
-// ENUMS (OBRIGATORIAMENTE MULTILINHA NO PRISMA)
-//////////////////////////////////////////////////////
-
+/*
+  ENUMS
+  (Prisma exige 1 valor por linha — não pode ficar tudo na mesma linha)
+*/
 enum CargoUsuario {
   DONO
   GERENTE
@@ -49,150 +50,187 @@ enum MetodoPagamento {
   A_RECEBER
 }
 
-//////////////////////////////////////////////////////
-// 1. USUÁRIOS
-//////////////////////////////////////////////////////
+enum StatusDespesa {
+  PENDENTE
+  PAGO
+}
 
+/* =========================================================
+   1) USUÁRIOS / PERMISSÕES
+   ========================================================= */
 model Usuario {
-  id                String   @id @default(uuid())
+  id                String       @id @default(uuid())
   nome              String
-  email             String   @unique
+  email             String       @unique
   senha             String
-  cargo             CargoUsuario
+  cargo             CargoUsuario @default(VENDEDOR)
+
+  // Flags de permissão para controle de acesso no Layout
+  podeVerLeads      Boolean @default(false)
+  podeVerCalendario Boolean @default(false)
+  podeVerFestas     Boolean @default(false)
+  podeVerTarefas    Boolean @default(false)
+  podeVerEstoque    Boolean @default(false)
+  podeVerFinanceiro Boolean @default(false)
+  podeVerRelatorios Boolean @default(false)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  podeVerLeads      Boolean  @default(false)
-  podeVerCalendario Boolean  @default(false)
-  podeVerFestas     Boolean  @default(false)
-  podeVerTarefas    Boolean  @default(false)
-  podeVerEstoque    Boolean  @default(false)
-  podeVerFinanceiro Boolean  @default(false)
-  podeVerRelatorios Boolean  @default(false)
+  @@index([cargo])
 }
 
-//////////////////////////////////////////////////////
-// 2. CRM
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   2) COMERCIAL / CRM
+   ========================================================= */
 model Lead {
   id         String     @id @default(uuid())
   nome       String
   telefone   String
   status     StatusLead @default(NOVO)
-  origem     String?
+  origem     String?    // Instagram, Google, Indicação...
   dataVisita DateTime?
   createdAt  DateTime   @default(now())
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Cliente {
   id        String   @id @default(uuid())
   nome      String
-  telefone  String
-  email     String?
+  telefone  String @unique
+  email     String?  @default("")
   createdAt DateTime @default(now())
 
   festas    Festa[]
+
+  @@index([createdAt])
 }
 
-//////////////////////////////////////////////////////
-// 3. FESTAS
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   3) OPERACIONAL (EVENTOS / AGENDA)
+   ========================================================= */
 model Festa {
-  id                 String       @id @default(uuid())
+  id                 String     @id @default(uuid())
   nomeAniversariante String
   dataFesta          DateTime
-  horaInicio         String       @default("19:00")
-  horaFim            String       @default("23:00")
+  horaInicio         String     @default("19:00")
+  horaFim            String     @default("23:00")
   valorTotal         Float
   qtdPessoas         Int
-  status             StatusFesta  @default(AGENDADO)
-  createdAt          DateTime     @default(now())
+  status             StatusFesta @default(AGENDADO)
 
   clienteId String
-  cliente   Cliente   @relation(fields: [clienteId], references: [id])
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Restrict)
 
   pacoteId  String?
-  pacote    Pacote?   @relation(fields: [pacoteId], references: [id])
+  pacote    Pacote?    @relation(fields: [pacoteId], references: [id], onDelete: SetNull)
 
   pagamentos Pagamento[]
+  simulacoes Simulacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dataFesta])
+  @@index([status])
+  @@index([clienteId])
 }
 
 model Pacote {
   id        String  @id @default(uuid())
-  nome      String
+  nome      String @unique
   precoBase Float
-  descricao String?
+  descricao String? @default("")
 
   festas    Festa[]
+  createdAt DateTime @default(now())
+
+  @@index([nome])
 }
 
-//////////////////////////////////////////////////////
-// 4. TAREFAS
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   4) TAREFAS
+   ========================================================= */
 model Tarefa {
-  id         String        @id @default(uuid())
+  id         String      @id @default(uuid())
   descricao  String
-  equipe     String
+  equipe     String      @default("Geral")
   dataLimite DateTime
-  status     StatusTarefa  @default(PENDENTE)
-  createdAt  DateTime      @default(now())
+  status     StatusTarefa @default(PENDENTE)
+  createdAt  DateTime    @default(now())
+
+  @@index([status])
+  @@index([dataLimite])
 }
 
-//////////////////////////////////////////////////////
-// 5. ESTOQUE
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   5) ESTOQUE
+   ========================================================= */
 model ItemEstoque {
   id            String   @id @default(uuid())
   nome          String
-  categoria     String
-  quantidade    Int
-  estoqueMinimo Int
-  unidade       String   @default("UN")
+  categoria     String   @default("Geral")
+  quantidade    Int      @default(0)
+  estoqueMinimo Int      @default(5)
+  unidade       String   @default("UN") // UN, KG, L etc
   updatedAt     DateTime @updatedAt
+
+  @@index([categoria])
 }
 
-//////////////////////////////////////////////////////
-// 6. FINANCEIRO
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   6) FINANCEIRO
+   ========================================================= */
 model Pagamento {
-  id             String           @id @default(uuid())
+  id             String         @id @default(uuid())
   valor          Float
   dataVencimento DateTime
-  status         StatusPagamento  @default(PENDENTE)
-  parcela        Int
-  metodo         MetodoPagamento  @default(A_DEFINIR)
-  createdAt      DateTime         @default(now())
+  status         StatusPagamento @default(PENDENTE)
+  parcela        Int            @default(1) // 0 = entrada
+  metodo         MetodoPagamento @default(A_DEFINIR)
 
   festaId String?
-  festa   Festa? @relation(fields: [festaId], references: [id])
+  festa   Festa? @relation(fields: [festaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([dataVencimento])
+  @@index([festaId])
 }
 
 model Despesa {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   descricao      String
   valor          Float
-  categoria      String?
+  categoria      String       @default("Geral")
   dataVencimento DateTime
-  status         StatusPagamento @default(PENDENTE)
-  createdAt      DateTime @default(now())
+  status         StatusDespesa @default(PENDENTE)
+  createdAt      DateTime     @default(now())
+
+  @@index([status])
+  @@index([dataVencimento])
 }
 
-//////////////////////////////////////////////////////
-// 7. SIMULADOR
-//////////////////////////////////////////////////////
-
+/* =========================================================
+   7) SIMULADOR DE LUCRO
+   ========================================================= */
 model Simulacao {
   id              String   @id @default(uuid())
+
   festaId         String?
+  festa           Festa?   @relation(fields: [festaId], references: [id], onDelete: SetNull)
+
   receitaPrevista Float
   custoTotal      Float
   lucroEstimado   Float
   margem          Float
-  detalhes        String
+  detalhes        String   @default("{}") // JSON em texto
+
   createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([festaId])
 }

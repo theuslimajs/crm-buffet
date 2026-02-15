@@ -1,25 +1,20 @@
-import { PrismaClient } from '@prisma/client'
+// prisma/seed.ts
+import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  const admin = await prisma.usuario.upsert({
-    where: { email: 'matheus.manaira@hotmail.com' },
-    update: {
-      // se quiser atualizar permissões caso já exista, descomente:
-      // podeVerLeads: true,
-      // podeVerCalendario: true,
-      // podeVerFestas: true,
-      // podeVerTarefas: true,
-      // podeVerEstoque: true,
-      // podeVerFinanceiro: true,
-      // podeVerRelatorios: true,
-    },
+  // Admin padrão
+  const adminEmail = "admin@buffetgm.com";
+  await prisma.usuario.upsert({
+    where: { email: adminEmail },
+    update: {},
     create: {
-      nome: 'Matheus Henrique de Lima',
-      email: 'matheus.manaira@hotmail.com',
-      senha: 'admin123',
-      cargo: 'DONO', // se cargo for enum e der erro TS, use CargoUsuario.DONO
+      nome: "Administrador",
+      email: adminEmail,
+      senha: "admin123",
+      cargo: "DONO",
+
       podeVerLeads: true,
       podeVerCalendario: true,
       podeVerFestas: true,
@@ -28,16 +23,61 @@ async function main() {
       podeVerFinanceiro: true,
       podeVerRelatorios: true,
     },
-  })
+  });
 
-  console.log('✅ Admin pronto:', admin.email)
+  // Pacotes padrão
+  const pacoteBasico = await prisma.pacote.upsert({
+    where: { nome: "Básico" },
+    update: { precoBase: 1999, descricao: "Pacote básico" },
+    create: { nome: "Básico", precoBase: 1999, descricao: "Pacote básico" },
+  });
+
+  await prisma.pacote.upsert({
+    where: { nome: "Premium" },
+    update: { precoBase: 2999, descricao: "Pacote premium" },
+    create: { nome: "Premium", precoBase: 2999, descricao: "Pacote premium" },
+  });
+
+  // Cliente demo
+  const cliente = await prisma.cliente.upsert({
+    where: { telefone: "11999999999" },
+    update: {},
+    create: {
+      nome: "Cliente Demo",
+      telefone: "11999999999",
+      email: "cliente@demo.com",
+    },
+  });
+
+  // Festa demo (somente se não existir festa demo)
+  const exists = await prisma.festa.findFirst({ where: { nomeAniversariante: "Festa Demo" } });
+  if (!exists) {
+    const dataFesta = new Date();
+    dataFesta.setDate(dataFesta.getDate() + 20);
+
+    await prisma.festa.create({
+      data: {
+        nomeAniversariante: "Festa Demo",
+        dataFesta,
+        horaInicio: "19:00",
+        horaFim: "23:00",
+        valorTotal: 2500,
+        qtdPessoas: 50,
+        status: "AGENDADO",
+        clienteId: cliente.id,
+        pacoteId: pacoteBasico.id,
+      },
+    });
+  }
+
+  console.log("Seed concluído ✅");
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed falhou:', e)
-    process.exitCode = 1
+    console.error(e);
+    process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect()
-  })
+    await prisma.$disconnect();
+  });

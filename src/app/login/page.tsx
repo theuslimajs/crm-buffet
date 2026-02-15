@@ -1,72 +1,64 @@
+// src/app/login/page.tsx
 "use client";
 
 import { useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import { login } from "../actions";
-
-type LoginState = {
-  error?: string;
-};
-
-const initialState: LoginState = {};
+import SubmitButton from "../submit-button";
 
 export default function LoginPage() {
-  // login (server action) idealmente deve ter assinatura: (prevState, formData) => newState
-  const [state, formAction, isPending] = useActionState<LoginState, FormData>(login, initialState);
+  const [state, action] = useActionState(login as any, null);
+  const params = useSearchParams();
+  const next = params.get("next") ?? "";
 
   return (
-    <main className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black text-white tracking-tighter">BUFFET GM</h1>
-          <p className="text-slate-500 font-medium">Aceda ao seu painel de gestão</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">Buffet GM</h1>
+          <p className="text-slate-500 text-sm">Acesse o painel de gestão</p>
         </div>
 
-        <div className="bg-slate-900 p-10 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-          <form action={formAction} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
-                E-mail
-              </label>
-              <input
-                name="email"
-                type="email"
-                placeholder="matheus.manaira@hotmail.com"
-                required
-                autoComplete="email"
-                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition"
-              />
+        <form action={action} className="space-y-4">
+          <input type="hidden" name="next" value={next} />
+
+          <div>
+            <label className="text-xs font-black uppercase tracking-widest text-slate-600">Email</label>
+            <input
+              name="email"
+              type="email"
+              className="mt-2 w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/40"
+              placeholder="seu@email.com"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-black uppercase tracking-widest text-slate-600">Senha</label>
+            <input
+              name="senha"
+              type="password"
+              className="mt-2 w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500/40"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {state?.error ? (
+            <div className="text-sm text-red-600 font-semibold bg-red-50 border border-red-100 rounded-xl p-3">
+              {state.error}
             </div>
+          ) : null}
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-4 tracking-widest">
-                Palavra-passe
-              </label>
-              <input
-                name="senha"
-                type="password"
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-                className="w-full bg-slate-800 border-none p-4 pl-6 rounded-2xl text-white font-bold outline-emerald-500 focus:ring-2 focus:ring-emerald-900 transition"
-              />
-            </div>
+          <SubmitButton className="w-full bg-emerald-600 text-white font-black px-5 py-3 rounded-xl uppercase text-xs tracking-widest hover:bg-emerald-700 transition">
+            Entrar
+          </SubmitButton>
+        </form>
 
-            {state?.error && (
-              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl">
-                <p className="text-red-500 text-xs font-bold text-center">{state.error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 text-slate-950 font-black p-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
-            >
-              {isPending ? "A ENTRAR..." : "ACEDER AO SISTEMA"}
-            </button>
-          </form>
-        </div>
+        <p className="text-[11px] text-slate-400 mt-6">
+          Dica: depois você pode trocar a senha do administrador em Configurações.
+        </p>
       </div>
-    </main>
+    </div>
   );
 }
