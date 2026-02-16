@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/festas/page.tsx
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";

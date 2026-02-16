@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/estoque/page.tsx
 import { prisma } from "@/lib/prisma";
 import { createItemEstoque, deleteItemEstoque, movimentarEstoque } from "../actions";
@@ -59,7 +61,14 @@ export default async function EstoquePage() {
                       <form action={movimentarEstoque} className="flex gap-2">
                         <input type="hidden" name="id" value={i.id} />
                         <input type="hidden" name="tipo" value="ENTRADA" />
-                        <input name="valor" placeholder="+Qtd" className="border border-slate-200 rounded-xl px-3 py-2 w-24" />
+                        <input
+                          name="valor"
+                          type="number"
+                          min={1}
+                          defaultValue={1}
+                          placeholder="+Qtd"
+                          className="border border-slate-200 rounded-xl px-3 py-2 w-24"
+                        />
                         <button className="bg-slate-900 text-white font-black px-4 py-2 rounded-xl uppercase text-xs tracking-widest hover:bg-slate-800 transition">
                           Entrada
                         </button>
@@ -68,7 +77,14 @@ export default async function EstoquePage() {
                       <form action={movimentarEstoque} className="flex gap-2">
                         <input type="hidden" name="id" value={i.id} />
                         <input type="hidden" name="tipo" value="SAIDA" />
-                        <input name="valor" placeholder="-Qtd" className="border border-slate-200 rounded-xl px-3 py-2 w-24" />
+                        <input
+                          name="valor"
+                          type="number"
+                          min={1}
+                          defaultValue={1}
+                          placeholder="-Qtd"
+                          className="border border-slate-200 rounded-xl px-3 py-2 w-24"
+                        />
                         <button className="bg-amber-600 text-white font-black px-4 py-2 rounded-xl uppercase text-xs tracking-widest hover:bg-amber-700 transition">
                           Saída
                         </button>

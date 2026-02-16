@@ -8,10 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/*
-  ENUMS
-  (Prisma exige 1 valor por linha — não pode ficar tudo na mesma linha)
-*/
 enum CargoUsuario {
   DONO
   GERENTE
@@ -55,9 +51,6 @@ enum StatusDespesa {
   PAGO
 }
 
-/* =========================================================
-   1) USUÁRIOS / PERMISSÕES
-   ========================================================= */
 model Usuario {
   id                String       @id @default(uuid())
   nome              String
@@ -80,9 +73,6 @@ model Usuario {
   @@index([cargo])
 }
 
-/* =========================================================
-   2) COMERCIAL / CRM
-   ========================================================= */
 model Lead {
   id         String     @id @default(uuid())
   nome       String
@@ -108,9 +98,6 @@ model Cliente {
   @@index([createdAt])
 }
 
-/* =========================================================
-   3) OPERACIONAL (EVENTOS / AGENDA)
-   ========================================================= */
 model Festa {
   id                 String     @id @default(uuid())
   nomeAniversariante String
@@ -150,9 +137,6 @@ model Pacote {
   @@index([nome])
 }
 
-/* =========================================================
-   4) TAREFAS
-   ========================================================= */
 model Tarefa {
   id         String      @id @default(uuid())
   descricao  String
@@ -165,9 +149,6 @@ model Tarefa {
   @@index([dataLimite])
 }
 
-/* =========================================================
-   5) ESTOQUE
-   ========================================================= */
 model ItemEstoque {
   id            String   @id @default(uuid())
   nome          String
@@ -180,9 +161,6 @@ model ItemEstoque {
   @@index([categoria])
 }
 
-/* =========================================================
-   6) FINANCEIRO
-   ========================================================= */
 model Pagamento {
   id             String         @id @default(uuid())
   valor          Float
@@ -214,9 +192,6 @@ model Despesa {
   @@index([dataVencimento])
 }
 
-/* =========================================================
-   7) SIMULADOR DE LUCRO
-   ========================================================= */
 model Simulacao {
   id              String   @id @default(uuid())
 

@@ -2,14 +2,28 @@
 import { prisma } from "@/lib/prisma";
 import { confirmarPagamento, createDespesa, deleteDespesa, pagarDespesa, updatePagamento } from "../actions";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function FinanceiroPage() {
-  const [pagamentos, despesas] = await Promise.all([
-    prisma.pagamento.findMany({
-      orderBy: { dataVencimento: "asc" },
-      include: { festa: { include: { cliente: true } } },
-    }),
-    prisma.despesa.findMany({ orderBy: { dataVencimento: "asc" } }),
-  ]);
+  let pagamentos: any[] = [];
+  let despesas: any[] = [];
+  let dbError: string | null = null;
+
+  try {
+    const result = await Promise.all([
+      prisma.pagamento.findMany({
+        orderBy: { dataVencimento: "asc" },
+        include: { festa: { include: { cliente: true } } },
+      }),
+      prisma.despesa.findMany({ orderBy: { dataVencimento: "asc" } }),
+    ]);
+    pagamentos = result[0];
+    despesas = result[1];
+  } catch (e) {
+    console.error(e);
+    dbError = "Não consegui acessar a tabela de financeiro no banco. Confirme se as migrations foram aplicadas no Neon/Vercel e se DATABASE_URL está configurada.";
+  }
 
   const receberPendente = pagamentos.filter((p) => p.status === "PENDENTE").reduce((acc, p) => acc + p.valor, 0);
   const receberPago = pagamentos.filter((p) => p.status === "PAGO").reduce((acc, p) => acc + p.valor, 0);
@@ -24,6 +38,12 @@ export default async function FinanceiroPage() {
         <h1 className="text-3xl font-black">Financeiro</h1>
         <p className="text-slate-500">Fluxo de caixa: contas a receber e a pagar</p>
       </header>
+
+      {dbError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <b>Erro:</b> {dbError}
+        </div>
+      ) : null}
 
       {/* KPIs */}
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">

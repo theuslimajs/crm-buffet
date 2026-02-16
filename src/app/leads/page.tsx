@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/leads/page.tsx
 import { prisma } from "@/lib/prisma";
 import { createLead, deleteLead, updateLeadStatus } from "../actions";

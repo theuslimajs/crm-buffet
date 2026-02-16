@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/relatorios/page.tsx
 import { prisma } from "@/lib/prisma";
 import PrintButton from "@/components/PrintButton";

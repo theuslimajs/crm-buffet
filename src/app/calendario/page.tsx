@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/calendario/page.tsx
 import { prisma } from "@/lib/prisma";
 

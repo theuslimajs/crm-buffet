@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/convites/page.tsx
 import { prisma } from "@/lib/prisma";
 import ConviteSender from "./convite-sender";

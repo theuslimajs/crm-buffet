@@ -7,6 +7,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 /**
+ * Revalida múltiplas rotas de uma vez.
+ * Isso mantém as telas sincronizadas (Dashboard, listas, etc.).
+ */
+function revalidate(paths: string[]) {
+  for (const p of paths) revalidatePath(p);
+}
+
+/**
  * Helpers
  */
 function safeDateRequired(dateStr: any): Date {
@@ -153,8 +161,7 @@ export async function createLead(formData: FormData) {
       },
     });
 
-    revalidatePath("/leads");
-    revalidatePath("/");
+    revalidate(["/leads", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -173,7 +180,7 @@ export async function updateLeadStatus(formData: FormData) {
       data: { status: status as any, dataVisita },
     });
 
-    revalidatePath("/leads");
+    revalidate(["/leads", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -186,8 +193,7 @@ export async function deleteLead(formData: FormData) {
 
     await prisma.lead.delete({ where: { id } });
 
-    revalidatePath("/leads");
-    revalidatePath("/");
+    revalidate(["/leads", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -203,9 +209,8 @@ export async function createCliente(formData: FormData) {
       },
     });
 
-    revalidatePath("/clientes");
-    revalidatePath("/festas/nova");
-    revalidatePath("/festas");
+    // Cliente aparece em /clientes e também é usado ao criar festa.
+    revalidate(["/clientes", "/festas/nova", "/festas", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -307,8 +312,7 @@ export async function createTarefa(formData: FormData) {
       },
     });
 
-    revalidatePath("/tarefas");
-    revalidatePath("/calendario");
+    revalidate(["/tarefas", "/calendario", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -320,8 +324,7 @@ export async function deleteTarefa(formData: FormData) {
     if (!id) return;
 
     await prisma.tarefa.delete({ where: { id } });
-    revalidatePath("/tarefas");
-    revalidatePath("/calendario");
+    revalidate(["/tarefas", "/calendario", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -340,8 +343,7 @@ export async function toggleTarefaStatus(formData: FormData) {
       data: { status: tarefa.status === "PENDENTE" ? "CONCLUIDA" : "PENDENTE" },
     });
 
-    revalidatePath("/tarefas");
-    revalidatePath("/calendario");
+    revalidate(["/tarefas", "/calendario", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -363,7 +365,7 @@ export async function createItemEstoque(formData: FormData) {
       },
     });
 
-    revalidatePath("/estoque");
+    revalidate(["/estoque", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -375,7 +377,7 @@ export async function deleteItemEstoque(formData: FormData) {
     if (!id) return;
 
     await prisma.itemEstoque.delete({ where: { id } });
-    revalidatePath("/estoque");
+    revalidate(["/estoque", "/"]);
   } catch (e) {
     console.error(e);
   }
@@ -398,7 +400,7 @@ export async function movimentarEstoque(formData: FormData) {
       data: { quantidade: novaQtd },
     });
 
-    revalidatePath("/estoque");
+    revalidate(["/estoque", "/"]);
   } catch (e) {
     console.error(e);
   }

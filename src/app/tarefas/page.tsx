@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/tarefas/page.tsx
 import { prisma } from "@/lib/prisma";
 import { createTarefa, deleteTarefa, toggleTarefaStatus } from "../actions";

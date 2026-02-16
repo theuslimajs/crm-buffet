@@ -2,8 +2,21 @@
 import { prisma } from "@/lib/prisma";
 import { createCliente } from "../actions";
 
+export const dynamic = "force-dynamic";
+
 export default async function ClientesPage() {
-  const clientes = await prisma.cliente.findMany({ orderBy: { createdAt: "desc" } });
+  let clientes: Array<{ id: string; nome: string; telefone: string; email: string | null; createdAt: Date }> = [];
+  let dbError: string | null = null;
+
+  try {
+    clientes = await prisma.cliente.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (e) {
+    console.error(e);
+    dbError =
+      "Não consegui carregar os clientes no banco. Verifique se as tabelas foram criadas no Neon (migrations/db push) e se o DATABASE_URL está correto.";
+  }
 
   return (
     <div className="space-y-8">
@@ -27,6 +40,12 @@ export default async function ClientesPage() {
 
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
         <h2 className="font-black mb-4">Lista de Clientes</h2>
+
+        {dbError ? (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm">
+            {dbError}
+          </div>
+        ) : null}
 
         {clientes.length === 0 ? (
           <p className="text-slate-500">Nenhum cliente cadastrado.</p>
