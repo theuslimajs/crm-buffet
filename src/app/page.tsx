@@ -1,255 +1,124 @@
-// src/app/page.tsx
-import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { PartyPopper, DollarSign, Target, Package, ClipboardList } from "lucide-react";
+import { prisma } from '@/lib/prisma'
+import { DollarSign, TrendingUp, TrendingDown, Wallet, AlertCircle, Clock } from 'lucide-react'
 
+// Força a atualização dos dados sempre que você entra na página
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [leads, festasProximas, pagamentosPendentes, tarefasPendentes, estoqueBaixo] = await Promise.all([
-    prisma.lead.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
-    prisma.festa.findMany({
-      where: { dataFesta: { gte: new Date() } },
-      orderBy: { dataFesta: "asc" },
-      take: 6,
-      include: { cliente: true },
-    }),
-    prisma.pagamento.findMany({
-      where: { status: "PENDENTE" },
-      orderBy: { dataVencimento: "asc" },
-      take: 8,
-      include: { festa: { include: { cliente: true } } },
-    }),
-    prisma.tarefa.findMany({
-      where: { status: "PENDENTE" },
-      orderBy: { dataLimite: "asc" },
-      take: 8,
-    }),
-    prisma.itemEstoque.findMany({
-      orderBy: { updatedAt: "desc" },
-      take: 8,
-    }),
-  ]);
+  // 1. BUSCAR DADOS DO BANCO
+  const pagamentos = await prisma.pagamento.findMany() // Entradas (Festas)
+  const despesas = await prisma.despesa.findMany()     // Saídas (Contas)
+  
+  // 2. CÁLCULOS FINANCEIROS
+  // Receita Real (Dinheiro no Bolso)
+  const receitaRecebida = pagamentos
+    .filter(p => p.status === 'PAGO')
+    .reduce((acc, p) => acc + p.valor, 0)
+    
+  // A Receber (Dinheiro Futuro)
+  const aReceber = pagamentos
+    .filter(p => p.status === 'PENDENTE')
+    .reduce((acc, p) => acc + p.valor, 0)
 
-  let despesasPendentes: { id: string; descricao: string; valor: number; dataVencimento: Date; categoria: string; status: string }[] = [];
-  let totalDespesasPendentes = 0;
-  try {
-    const [lista, resumo] = await Promise.all([
-      prisma.despesa.findMany({
-        where: { status: "PENDENTE" },
-        orderBy: { dataVencimento: "asc" },
-        take: 6,
-      }),
-      prisma.despesa.aggregate({
-        where: { status: "PENDENTE" },
-        _sum: { valor: true },
-      }),
-    ]);
-    despesasPendentes = lista as any;
-    totalDespesasPendentes = (resumo._sum.valor ?? 0) as any;
-  } catch (e) {
-    // Se o banco ainda não estiver migrado ou houver erro de conexão,
-    // não derruba o Dashboard.
-    console.error("Erro ao carregar despesas:", e);
-  }
+  // Despesa Real (Dinheiro que Saiu)
+  const despesaPaga = despesas
+    .filter(d => d.status === 'PAGO')
+    .reduce((acc, d) => acc + d.valor, 0)
+    
+  // Contas a Pagar (Dívida Futura)
+  const contasAPagar = despesas
+    .filter(d => d.status === 'PENDENTE')
+    .reduce((acc, d) => acc + d.valor, 0)
 
-  const itensBaixos = estoqueBaixo.filter((i) => i.quantidade <= i.estoqueMinimo);
+  // Resultados
+  const lucroReal = receitaRecebida - despesaPaga
+  const previsaoCaixa = (receitaRecebida + aReceber) - (despesaPaga + contasAPagar)
 
-  const dinheiroPendente = pagamentosPendentes.reduce((acc, p) => acc + p.valor, 0);
+  // Formatador de Moeda
+  const money = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <div className="space-y-8">
-      <header className="flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight">Dashboard</h1>
-          <p className="text-slate-500">Visão rápida do dia</p>
-        </div>
-
-        <div className="flex items-center gap-3 no-print">
-          <Link
-            href="/festas"
-            className="px-4 py-3 rounded-xl bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition"
-          >
-            Nova Festa
-          </Link>
-          <Link
-            href="/leads"
-            className="px-4 py-3 rounded-xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition"
-          >
-            Novo Lead
-          </Link>
-        </div>
+    <div className="space-y-8 pb-10">
+      <header className="flex flex-col gap-1">
+        <h1 className="text-3xl font-black text-slate-800 uppercase italic">Visão Geral</h1>
+        <p className="text-slate-500 font-medium">Acompanhe a saúde financeira do seu Buffet em tempo real.</p>
       </header>
 
-      {/* KPIs */}
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-        <KpiCard
-          title="Pagamentos pendentes"
-          value={dinheiroPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-          icon={<DollarSign size={18} />}
-        />
-        <KpiCard
-          title="Despesas pendentes"
-          value={totalDespesasPendentes.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-          icon={<DollarSign size={18} />}
-        />
-        <KpiCard title="Leads recentes" value={String(leads.length)} icon={<Target size={18} />} />
-        <KpiCard title="Festas próximas" value={String(festasProximas.length)} icon={<PartyPopper size={18} />} />
-        <KpiCard title="Estoque baixo" value={String(itensBaixos.length)} icon={<Package size={18} />} />
-      </section>
-
-      <section className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Festas */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-black text-lg">Próximas festas</h2>
-            <Link href="/festas" className="text-emerald-700 font-bold text-sm hover:underline">
-              Ver todas
-            </Link>
+      {/* GRID DE INDICADORES (6 Cards para visão total) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        
+        {/* 1. CAIXA REAL (O que tem no bolso) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-3 rounded-xl bg-emerald-100 text-emerald-600"><TrendingUp size={24} /></div>
+            <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">Entrada</span>
           </div>
-
-          <div className="space-y-3">
-            {festasProximas.length === 0 ? (
-              <p className="text-slate-500 text-sm">Sem eventos agendados.</p>
-            ) : (
-              festasProximas.map((f) => (
-                <div key={f.id} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-50">
-                  <div className="min-w-0">
-                    <p className="font-bold truncate">{f.nomeAniversariante}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {f.cliente.nome} • {new Date(f.dataFesta).toLocaleDateString("pt-BR")} {f.horaInicio}
-                    </p>
-                  </div>
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-600">
-                    {String(f.status).replaceAll("_", " ")}
-                  </span>
-                </div>
-              ))
-            )}
+          <div>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Receita Recebida</p>
+            <h3 className="text-3xl font-black text-slate-800">R$ {money(receitaRecebida)}</h3>
           </div>
         </div>
 
-        {/* Financeiro */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-black text-lg">Pagamentos a receber</h2>
-            <Link href="/financeiro" className="text-emerald-700 font-bold text-sm hover:underline">
-              Abrir financeiro
-            </Link>
+        {/* 2. SAÍDAS REAIS (O que já pagou) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-3 rounded-xl bg-red-100 text-red-600"><TrendingDown size={24} /></div>
+            <span className="text-[10px] font-black uppercase text-red-600 bg-red-50 px-2 py-1 rounded-lg">Saída</span>
           </div>
-
-          <div className="space-y-3">
-            {pagamentosPendentes.length === 0 ? (
-              <p className="text-slate-500 text-sm">Nenhum pagamento pendente.</p>
-            ) : (
-              pagamentosPendentes.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-50">
-                  <div className="min-w-0">
-                    <p className="font-bold truncate">
-                      {p.festa?.cliente?.nome ?? "Sem festa"} • Parcela {p.parcela}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      Venc.: {new Date(p.dataVencimento).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <span className="font-black">
-                    {p.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </span>
-                </div>
-              ))
-            )}
+          <div>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Despesas Pagas</p>
+            <h3 className="text-3xl font-black text-slate-800">R$ {money(despesaPaga)}</h3>
           </div>
         </div>
 
-        {/* Contas a pagar */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-black text-lg">Contas a pagar</h2>
-            <Link href="/financeiro" className="text-emerald-700 font-bold text-sm hover:underline">
-              Ver despesas
-            </Link>
+        {/* 3. LUCRO REAL (Saldo Atual) */}
+        <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl flex flex-col justify-between text-white hover:scale-[1.02] transition transform">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-3 rounded-xl bg-white/10 text-white"><Wallet size={24} /></div>
+            <span className="text-[10px] font-black uppercase text-white/80 bg-white/10 px-2 py-1 rounded-lg">Saldo</span>
           </div>
-
-          <div className="space-y-3">
-            {despesasPendentes.length === 0 ? (
-              <p className="text-slate-500 text-sm">Nenhuma despesa pendente.</p>
-            ) : (
-              despesasPendentes.map((d) => (
-                <div key={d.id} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-50">
-                  <div className="min-w-0">
-                    <p className="font-bold truncate">{d.descricao}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {d.categoria} • Venc.: {new Date(d.dataVencimento).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <span className="font-black">
-                    {Number(d.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </span>
-                </div>
-              ))
-            )}
+          <div>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Lucro Líquido</p>
+            <h3 className={`text-3xl font-black ${lucroReal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              R$ {money(lucroReal)}
+            </h3>
           </div>
         </div>
 
-        {/* Tarefas */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-black text-lg">Tarefas pendentes</h2>
-            <Link href="/tarefas" className="text-emerald-700 font-bold text-sm hover:underline">
-              Ver tarefas
-            </Link>
+        {/* 4. A RECEBER (Futuro) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-blue-100 shadow-sm ring-1 ring-blue-50/50 flex flex-col justify-between hover:shadow-md transition">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-3 rounded-xl bg-blue-100 text-blue-600"><Clock size={24} /></div>
+            <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">Pendente</span>
           </div>
-
-          <div className="space-y-3">
-            {tarefasPendentes.length === 0 ? (
-              <p className="text-slate-500 text-sm">Tudo em dia 🎉</p>
-            ) : (
-              tarefasPendentes.map((t) => (
-                <div key={t.id} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-slate-50">
-                  <div className="min-w-0">
-                    <p className="font-bold truncate">{t.descricao}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {t.equipe} • Até {new Date(t.dataLimite).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <ClipboardList size={16} className="text-slate-400 shrink-0" />
-                </div>
-              ))
-            )}
+          <div>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">A Receber (Festas)</p>
+            <h3 className="text-3xl font-black text-blue-600">R$ {money(aReceber)}</h3>
           </div>
         </div>
-      </section>
 
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 className="font-black text-lg mb-4">Estoque em atenção</h2>
-
-        {itensBaixos.length === 0 ? (
-          <p className="text-slate-500 text-sm">Nenhum item abaixo do mínimo.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {itensBaixos.map((i) => (
-              <div key={i.id} className="p-4 rounded-xl bg-red-50 border border-red-100">
-                <p className="font-bold">{i.nome}</p>
-                <p className="text-xs text-slate-600">
-                  {i.categoria} • {i.quantidade} / mín. {i.estoqueMinimo} ({i.unidade})
-                </p>
-              </div>
-            ))}
+        {/* 5. A PAGAR (Dívidas) */}
+        <div className="bg-white p-6 rounded-[2rem] border border-orange-100 shadow-sm ring-1 ring-orange-50/50 flex flex-col justify-between hover:shadow-md transition">
+          <div className="flex justify-between items-start mb-2">
+            <div className="p-3 rounded-xl bg-orange-100 text-orange-600"><AlertCircle size={24} /></div>
+            <span className="text-[10px] font-black uppercase text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">Atenção</span>
           </div>
-        )}
-      </section>
-    </div>
-  );
-}
+          <div>
+            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">Contas a Pagar</p>
+            <h3 className="text-3xl font-black text-orange-600">R$ {money(contasAPagar)}</h3>
+          </div>
+        </div>
 
-function KpiCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-black uppercase tracking-widest text-slate-500">{title}</p>
-        <span className="text-slate-400">{icon}</span>
+        {/* 6. PREVISÃO (Card Informativo) */}
+        <div className="bg-gradient-to-br from-slate-100 to-slate-200 p-6 rounded-[2rem] border border-slate-200 flex flex-col justify-center items-center text-center">
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Previsão de Fechamento</p>
+          <p className="text-sm text-slate-400 mb-2 px-4 leading-tight">Se receber tudo e pagar as contas pendentes, seu saldo será:</p>
+          <h3 className={`text-2xl font-black ${previsaoCaixa >= 0 ? 'text-slate-700' : 'text-red-500'}`}>
+            R$ {money(previsaoCaixa)}
+          </h3>
+        </div>
+
       </div>
-      <p className="mt-3 text-2xl font-black">{value}</p>
     </div>
-  );
+  )
 }

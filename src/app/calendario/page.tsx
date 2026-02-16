@@ -1,108 +1,114 @@
-export const dynamic = "force-dynamic";
-
-// src/app/calendario/page.tsx
 import { prisma } from "@/lib/prisma";
+import { CalendarDays, Clock } from "lucide-react";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
 
 export default async function CalendarioPage() {
-  const hoje = new Date();
-  const fim = new Date();
-  fim.setDate(fim.getDate() + 30);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
-  const [festas, tarefas, pagamentos] = await Promise.all([
-    prisma.festa.findMany({
-      where: { dataFesta: { gte: hoje, lte: fim } },
-      orderBy: { dataFesta: "asc" },
-      include: { cliente: true },
-    }),
-    prisma.tarefa.findMany({
-      where: { dataLimite: { gte: hoje, lte: fim } },
-      orderBy: { dataLimite: "asc" },
-    }),
-    prisma.pagamento.findMany({
-      where: { status: "PENDENTE", dataVencimento: { gte: hoje, lte: fim } },
-      orderBy: { dataVencimento: "asc" },
-      include: { festa: { include: { cliente: true } } },
-    }),
-  ]);
+  const startOfMonth = new Date(currentYear, currentMonth, 1);
+  const startOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
 
-  const fmtDate = (d: Date) => new Date(d).toLocaleDateString("pt-BR");
+  // 1. BUSCA TUDO (Festas, Tarefas, Pagamentos e DESPESAS)
+  const festas = await prisma.festa.findMany({ where: { dataFesta: { gte: startOfMonth, lt: startOfNextMonth } } });
+  const tarefas = await prisma.tarefa.findMany({ where: { dataLimite: { gte: startOfMonth, lt: startOfNextMonth } } });
+  
+  // Contas a Receber (Verde)
+  const pagamentos = await prisma.pagamento.findMany({ 
+      where: { dataVencimento: { gte: startOfMonth, lt: startOfNextMonth } },
+      include: { festa: true }
+  });
+  
+  // Contas a Pagar (Vermelho - ALIMENTA CALENDÁRIO)
+  const despesas = await prisma.despesa.findMany({
+      where: { dataVencimento: { gte: startOfMonth, lt: startOfNextMonth } }
+  });
+
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+  const days: Array<number | null> = [];
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-black">Calendário</h1>
-        <p className="text-slate-500">Próximos 30 dias: eventos, tarefas e vencimentos</p>
+    <div className="space-y-8 pb-20">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-800 uppercase italic flex items-center gap-3">
+            <CalendarDays className="text-purple-600" size={32} /> Calendário Master
+          </h1>
+          <p className="text-slate-500 font-medium">Festas, Tarefas e Contas (Pagar/Receber).</p>
+        </div>
+        <div className="bg-white px-6 py-3 rounded-2xl border font-bold text-slate-600 shadow-sm flex items-center gap-2">
+          <Clock size={16} className="text-purple-500" /> Hoje: {now.toLocaleDateString("pt-BR")}
+        </div>
       </header>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <Card title="Festas">
-          {festas.length === 0 ? (
-            <Empty />
-          ) : (
-            <div className="space-y-3">
-              {festas.map((f) => (
-                <div key={f.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-black">{fmtDate(f.dataFesta)} • {f.horaInicio}</p>
-                  <p className="text-sm font-semibold">{f.nomeAniversariante}</p>
-                  <p className="text-xs text-slate-500">{f.cliente.nome}</p>
-                </div>
-              ))}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-3 bg-white p-8 rounded-[2.5rem] border shadow-xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
+              {monthNames[currentMonth]} <span className="text-purple-500">{currentYear}</span>
+            </h2>
+            <div className="flex flex-wrap gap-2 text-[9px] font-black uppercase tracking-widest justify-end">
+              <span className="bg-emerald-100 text-emerald-600 px-2 py-1 rounded-md">Festa</span>
+              <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-md">Receber</span>
+              <span className="bg-red-100 text-red-600 px-2 py-1 rounded-md">Pagar</span>
             </div>
-          )}
-        </Card>
+          </div>
 
-        <Card title="Tarefas">
-          {tarefas.length === 0 ? (
-            <Empty />
-          ) : (
-            <div className="space-y-3">
-              {tarefas.map((t) => (
-                <div key={t.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-black">{fmtDate(t.dataLimite)}</p>
-                  <p className="text-sm font-semibold">{t.descricao}</p>
-                  <p className="text-xs text-slate-500">{t.equipe}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+          <div className="grid grid-cols-7 gap-2 mb-2 text-center">
+            {["D", "S", "T", "Q", "Q", "S", "S"].map((day, i) => (
+              <div key={i} className="text-[10px] font-black text-slate-400 uppercase">{day}</div>
+            ))}
+          </div>
 
-        <Card title="Vencimentos (a receber)">
-          {pagamentos.length === 0 ? (
-            <Empty />
-          ) : (
-            <div className="space-y-3">
-              {pagamentos.map((p) => (
-                <div key={p.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-black">{fmtDate(p.dataVencimento)}</p>
-                    <p className="text-sm font-semibold truncate">{p.festa?.cliente?.nome ?? "-"}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {p.festa?.nomeAniversariante ?? "-"} • Parcela {p.parcela}
-                    </p>
-                  </div>
-                  <div className="font-black whitespace-nowrap">
-                    {p.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          <div className="grid grid-cols-7 gap-2 lg:gap-3">
+            {days.map((day, index) => {
+              if (day == null) return <div key={index} className="bg-transparent" />;
+              
+              const dateKey = day;
+              const festasDia = festas.filter(f => new Date(f.dataFesta).getDate() === dateKey);
+              const pagtosDia = pagamentos.filter(p => new Date(p.dataVencimento).getDate() === dateKey);
+              const despesasDia = despesas.filter(d => new Date(d.dataVencimento).getDate() === dateKey); // Filtra despesas do dia
+              const tarefasDia = tarefas.filter(t => new Date(t.dataLimite).getDate() === dateKey);
+              const ehHoje = day === now.getDate();
+
+              return (
+                <div key={index} className={`min-h-[100px] rounded-2xl border p-2 flex flex-col justify-between transition relative bg-slate-50 hover:bg-white hover:shadow-lg ${ehHoje ? "ring-2 ring-purple-600" : ""}`}>
+                  <span className={`text-sm font-black ${ehHoje ? "text-purple-600" : "text-slate-400"}`}>{day}</span>
+                  
+                  <div className="flex flex-col gap-1 mt-1 overflow-hidden">
+                    {festasDia.map(f => (
+                        <div key={f.id} className="text-[9px] bg-emerald-100 text-emerald-700 px-1 rounded truncate font-bold" title={f.nomeAniversariante}>🎉 {f.nomeAniversariante}</div>
+                    ))}
+                    {pagtosDia.map(p => (
+                        <div key={p.id} className="text-[9px] bg-blue-100 text-blue-700 px-1 rounded truncate font-bold" title={`Receber: R$ ${p.valor}`}>💰 +{p.valor}</div>
+                    ))}
+                    {despesasDia.map(d => (
+                        <div key={d.id} className="text-[9px] bg-red-100 text-red-700 px-1 rounded truncate font-bold" title={`Pagar: ${d.descricao}`}>💸 -{d.valor}</div>
+                    ))}
+                    {tarefasDia.length > 0 && (
+                        <div className="text-[9px] bg-orange-100 text-orange-700 px-1 rounded truncate font-bold">📌 {tarefasDia.length} Tarefas</div>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </section>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-      <h2 className="font-black text-lg mb-4">{title}</h2>
-      {children}
-    </div>
-  );
-}
-
-function Empty() {
-  return <p className="text-slate-500 text-sm">Nada por aqui nos próximos 30 dias.</p>;
 }

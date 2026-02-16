@@ -1,88 +1,42 @@
-// src/app/clientes/page.tsx
-import { prisma } from "@/lib/prisma";
-import { createCliente } from "../actions";
+import { createCliente } from '../../actions'
+import { User, Phone, Mail, Save, MapPin } from 'lucide-react'
 
-export const dynamic = "force-dynamic";
-
-export default async function ClientesPage() {
-  let clientes: Array<{ id: string; nome: string; telefone: string; email: string | null; createdAt: Date }> = [];
-  let dbError: string | null = null;
-
-  try {
-    clientes = await prisma.cliente.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-  } catch (e) {
-    console.error(e);
-    dbError =
-      "Não consegui carregar os clientes no banco. Verifique se as tabelas foram criadas no Neon (migrations/db push) e se o DATABASE_URL está correto.";
-  }
-
+export default function NovoClientePage() {
   return (
-    <div className="space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8">
       <header>
-        <h1 className="text-3xl font-black">Clientes</h1>
-        <p className="text-slate-500">Cadastro e histórico</p>
+        <h1 className="text-3xl font-black text-slate-800 uppercase italic">Novo Cliente</h1>
+        <p className="text-slate-500">Cadastro completo para CRM.</p>
       </header>
 
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 className="font-black mb-4">Novo Cliente</h2>
-
-        <form action={createCliente} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <input name="nome" placeholder="Nome" className="border border-slate-200 rounded-xl px-4 py-3" required />
-          <input name="telefone" placeholder="Telefone" className="border border-slate-200 rounded-xl px-4 py-3" required />
-          <input name="email" placeholder="Email (opcional)" className="border border-slate-200 rounded-xl px-4 py-3" />
-          <button className="bg-emerald-600 text-white font-black rounded-xl px-4 py-3 uppercase text-xs tracking-widest hover:bg-emerald-700 transition">
-            Salvar
-          </button>
-        </form>
-      </div>
-
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 className="font-black mb-4">Lista de Clientes</h2>
-
-        {dbError ? (
-          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 text-sm">
-            {dbError}
-          </div>
-        ) : null}
-
-        {clientes.length === 0 ? (
-          <p className="text-slate-500">Nenhum cliente cadastrado.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b">
-                  <th className="py-2">Nome</th>
-                  <th>Telefone</th>
-                  <th>Email</th>
-                  <th>Cadastro</th>
-                  <th className="text-right">Festas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clientes.map((c) => (
-                  <tr key={c.id} className="border-b last:border-b-0">
-                    <td className="py-3 font-semibold">{c.nome}</td>
-                    <td>{c.telefone}</td>
-                    <td>{c.email || "-"}</td>
-                    <td>{new Date(c.createdAt).toLocaleDateString("pt-BR")}</td>
-                    <td className="text-right">
-                      <a
-                        className="inline-block bg-slate-900 text-white font-black px-3 py-2 rounded-lg uppercase text-[10px] tracking-widest hover:bg-slate-800 transition"
-                        href={`/festas?n=${encodeURIComponent(c.id)}`}
-                      >
-                        Ver
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <form action={createCliente} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 space-y-6">
+        <div className="space-y-4">
+            <div>
+                <label className="text-xs font-black uppercase text-slate-400 ml-2">Nome Completo</label>
+                <div className="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <User size={18} className="text-slate-400 mr-3" />
+                    <input name="nome" required className="bg-transparent w-full outline-none font-bold text-slate-700" placeholder="Ex: Ana Clara" />
+                </div>
+            </div>
+            <div>
+                <label className="text-xs font-black uppercase text-slate-400 ml-2">WhatsApp</label>
+                <div className="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <Phone size={18} className="text-slate-400 mr-3" />
+                    <input name="telefone" required className="bg-transparent w-full outline-none font-bold text-slate-700" placeholder="(11) 99999-9999" />
+                </div>
+            </div>
+            <div>
+                <label className="text-xs font-black uppercase text-slate-400 ml-2">Email</label>
+                <div className="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <Mail size={18} className="text-slate-400 mr-3" />
+                    <input name="email" type="email" className="bg-transparent w-full outline-none font-bold text-slate-700" placeholder="ana@email.com" />
+                </div>
+            </div>
+        </div>
+        <button className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase tracking-widest hover:bg-slate-800 transition flex justify-center gap-2">
+          <Save size={18} /> Salvar e Ir para Festa
+        </button>
+      </form>
     </div>
-  );
+  )
 }

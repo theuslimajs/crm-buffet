@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 
 const PUBLIC_FILE = /\.(.*)$/;
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Libera arquivos estáticos e rotas públicas
